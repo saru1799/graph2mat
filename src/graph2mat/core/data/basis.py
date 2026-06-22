@@ -195,71 +195,14 @@ class BasisFunction:
             return tuple(
                 _san_basis_spec(i, basis_spec) for i, basis_spec in enumerate(basis)
             )
+    def __len__(self) -> int:
+        return self.basis_size
 
-@dataclasses.dataclass(frozen=True)
-class PointBasis:
-    """Stores the basis set for a point type.
+    def __eq__(self, other) -> bool:
+        return self.basis == other.basis
 
-    Parameters
-    ----------
-    type :
-        The type ID, e.g. some meaningful name or a number.
-
-    Examples
-    ----------
-
-    .. code-block:: python
-
-        from graph2mat import PointBasis
-
-        # Let's create a basis with 3 l=0 functions and 2 sets of l=1 functions.
-        # The convention for spherical harmonics will be the standard one.
-        # We call this type of basis set "A", and functions have a reach of 5.
-        basis = PointBasis("A", R=5, basis=[3, 2], basis_convention="spherical")
-
-        # Same but with a different reach for l=0 (R=5) and l=1 functions (R=3).
-        basis = PointBasis("A", R=np.array([5, 5, 5, 3, 3, 3, 3, 3, 3]), irreps=[3, 2], basis_convention="spherical" )
-
-        # Equivalent specification of the basis using tuples:
-        basis = PointBasis("A", R=5, basis=[(3, 0, 1), (2, 1, -1)], basis_convention="spherical")
-
-    """
-
-    type: Union[str, int]
-    R: Union[float, np.ndarray, Tuple[float, np.ndarray]]
-    basis: Union[str, Sequence[Union[int, Tuple[int, int, int]]], Tuple] = ()
-    row_basis: BasisFunction = None
-    col_basis: BasisFunction = None
-    basis_convention: BasisConvention = "spherical"
-
-
-    def __post_init__(self):
-        if isinstance(self.basis, tuple):
-            assert len(self.basis) == 2, "If basis is a tuple, it must have length 2."
-            row_basis, col_basis = self.basis
-            assert isinstance(row_basis, (str, list, tuple)), "Row basis must be a string, list or tuple."
-            assert isinstance(col_basis, (str, list, tuple)), "Column basis must be a string, list or tuple."
-        else:
-            row_basis = col_basis = self.basis
-        if isinstance(self.R, tuple):
-            assert len(self.R) == 2, "If R is a tuple, it must have length 2."
-            row_R, col_R = self.R
-            assert isinstance(row_R, (float, np.ndarray)), "Row R must be a float or an array."
-            assert isinstance(col_R, (float, np.ndarray)), "Column R must be a float or an array."
-        else:
-            row_R = col_R = self.R
-        
-        row_basis = BasisFunction(R=row_R,
-                                  basis=row_basis,
-                                  basis_convention=self.basis_convention)
-        col_basis = BasisFunction(R=col_R,
-                                  basis=col_basis,
-                                  basis_convention=self.basis_convention)
-
-        object.__setattr__(self, "basis", (row_basis, col_basis))
-        object.__setattr__(self, "row_basis", row_basis)
-        object.__setattr__(self, "col_basis", col_basis)
-        
+    def __str__(self):
+        return f"Basis: {self.basis}. MaxR: {self.maxR():.3f}."
 
     @property
     def e3nn_irreps(self):
@@ -268,23 +211,11 @@ class PointBasis:
 
         return o3.Irreps((mul, (l, p)) for mul, l, p in self.basis)
 
-    def copy(self, **kwargs):
-        return dataclasses.replace(self, **kwargs)
-
-    def __len__(self) -> int:
-        return self.basis_size
-
-    def __eq__(self, other) -> bool:
-        return self.basis == other.basis
-
-    def __str__(self):
-        return f"Type: {self.type}. Basis: {self.basis}. MaxR: {self.maxR():.3f}."
-
     @property
     def basis_size(self) -> int:
         """Returns the number of basis functions per point."""
         return sum(n * (2 * l + 1) for n, l, _ in self.basis)
-
+    
     @property
     def num_sets(self) -> int:
         """Returns the number of sets of functions.
@@ -349,6 +280,117 @@ class PointBasis:
                     i += 1
 
         return sisl.Atom(Z=Z, orbitals=orbitals)
+
+@dataclasses.dataclass(frozen=True)
+class PointBasis:
+    """Stores the basis set for a point type.
+
+    Parameters
+    ----------
+    type :
+        The type ID, e.g. some meaningful name or a number.
+
+    Examples
+    ----------
+
+    .. code-block:: python
+
+        from graph2mat import PointBasis
+
+        # Let's create a basis with 3 l=0 functions and 2 sets of l=1 functions.
+        # The convention for spherical harmonics will be the standard one.
+        # We call this type of basis set "A", and functions have a reach of 5.
+        basis = PointBasis("A", R=5, basis=[3, 2], basis_convention="spherical")
+
+        # Same but with a different reach for l=0 (R=5) and l=1 functions (R=3).
+        basis = PointBasis("A", R=np.array([5, 5, 5, 3, 3, 3, 3, 3, 3]), irreps=[3, 2], basis_convention="spherical" )
+
+        # Equivalent specification of the basis using tuples:
+        basis = PointBasis("A", R=5, basis=[(3, 0, 1), (2, 1, -1)], basis_convention="spherical")
+
+    """
+
+    type: Union[str, int]
+    R: Union[float, np.ndarray, Tuple[float, np.ndarray]]
+    basis: Union[str, Sequence[Union[int, Tuple[int, int, int]]], Tuple] = ()
+    row_basis: BasisFunction = None
+    col_basis: BasisFunction = None
+    basis_convention: BasisConvention = "spherical"
+
+
+    def __post_init__(self):
+        print("Initializing PointBasis. Sanitizing basis and R.")
+        if isinstance(self.basis, tuple) != isinstance(self.R, tuple):
+            print("Warning: One of basis or R is a tuple while the other is not. Be sure this is what you want")
+        if isinstance(self.basis, tuple):
+            assert len(self.basis) == 2, "If basis is a tuple, it must have length 2."
+            row_basis, col_basis = self.basis
+            assert isinstance(row_basis, (str, list, tuple)), "Row basis must be a string, list or tuple."
+            assert isinstance(col_basis, (str, list, tuple)), "Column basis must be a string, list or tuple."
+        else:
+            row_basis = col_basis = self.basis
+        if isinstance(self.R, tuple):
+            assert len(self.R) == 2, "If R is a tuple, it must have length 2."
+            row_R, col_R = self.R
+            assert isinstance(row_R, (float, np.ndarray)), "Row R must be a float or an array."
+            assert isinstance(col_R, (float, np.ndarray)), "Column R must be a float or an array."
+        else:
+            row_R = col_R = self.R
+        
+        row_basis = BasisFunction(R=row_R,
+                                  basis=row_basis,
+                                  basis_convention=self.basis_convention)
+        col_basis = BasisFunction(R=col_R,
+                                  basis=col_basis,
+                                  basis_convention=self.basis_convention)
+
+        object.__setattr__(self, "basis", (row_basis, col_basis))
+        object.__setattr__(self, "row_basis", row_basis)
+        object.__setattr__(self, "col_basis", col_basis)
+        
+
+    @property
+    def e3nn_irreps(self):
+        """Returns the irreps in the e3nn format."""
+        return self.row_basis.e3nn_irreps, self.col_basis.e3nn_irreps
+
+    def copy(self, **kwargs):
+        return dataclasses.replace(self, **kwargs)
+
+    def __len__(self) -> int:
+        return self.basis_size
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, PointBasis):
+            return self.row_basis == other.row_basis and self.col_basis == other.col_basis
+        elif isinstance(other, BasisFunction):
+            return self.row_basis == other or self.col_basis == other
+        return False
+
+    def __str__(self):
+        return f"Type: {self.type}. Row: {self.row_basis}. \
+Col: {self.col_basis}."
+
+    @property
+    def basis_size(self) -> int:
+        """Returns the number of basis functions per point,
+        tuple of (row_basis_size, col_basis_size)"""
+        return (self.row_basis.basis_size, self.col_basis.basis_size)
+    
+    @property
+    def num_sets(self) -> int:
+        """Returns the number of sets of functions.
+
+        E.g. for a basis with 3 l=0 functions and 2 sets of l=1 functions, this
+        returns 5.
+        """
+        return self.row_basis.num_sets, self.col_basis.num_sets
+
+    def maxR(self) -> float:
+        """Returns the maximum reach of the basis."""
+        return self.row_basis.maxR(), self.col_basis.maxR()
+
+
 
 
 class NoBasisAtom(sisl.Atom):

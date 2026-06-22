@@ -4,7 +4,7 @@ from typing import Dict, Type
 import torch
 from e3nn import o3
 
-from graph2mat import PointBasis
+from graph2mat import BasisFunction
 from graph2mat.bindings.e3nn.irreps_tools import ReducedTensorProducts
 from graph2mat.bindings.torch import TorchMatrixBlock
 
@@ -16,8 +16,8 @@ class E3nnIrrepsMatrixBlock(TorchMatrixBlock):
 
     def __init__(
         self,
-        i_basis: PointBasis,
-        j_basis: PointBasis,
+        i_basis: BasisFunction,
+        j_basis: BasisFunction,
         symmetry: str,
         operation_cls: Type,
         symm_transpose: bool = False,
