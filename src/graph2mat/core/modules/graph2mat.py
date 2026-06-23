@@ -272,7 +272,8 @@ class Graph2Mat(Generic[ArrayType]):
     interactions: Dict[Tuple[int, int], MatrixBlock]
 
     #: The basis table used internally by graph2mat
-    graph2mat_table: List[PointBasis]
+    graph2mat_table_row: List[PointBasis]
+    graph2mat_table_col: List[PointBasis]
     #: The mapping of types from the original basis to the graph2mat basis.
     types_to_graph2mat: ArrayType
     #: The mapping of edge types from the original basis to the graph2mat basis.
@@ -319,10 +320,32 @@ class Graph2Mat(Generic[ArrayType]):
                 self_blocks_symmetry = blocks_symmetry
 
         self.symmetric = symmetric
-        self.basis_table = (
-            unique_basis
-            if isinstance(unique_basis, BasisTableWithEdges)
-            else BasisTableWithEdges(unique_basis)
+
+        # Asses symmetry: if symmetric, it means that all the unique basis have matrix_role=None,
+        # and the matrix is square. If not symmetric, we can have different basis for rows and columns.
+
+        if isinstance(unique_basis, BasisTableWithEdges):
+            is_square = all(
+                b.matrix_role is None for b in unique_basis.basis)
+        else:
+            is_square = all(
+                b.matrix_role is None for b in unique_basis)
+
+        if is_square != symmetric:
+            raise ValueError(
+                f"Asked for symmetric={symmetric}, but the matrix is not square. The basis has matrix_role={[(b.type, b.matrix_role) for b in unique_basis]}.\
+This is inconsistent. If symmetric, all basis must have matrix_role=None. If not symmetric, basis must have matrix_role='row' or 'col'."
+            )
+        row_basis, col_basis = self._process_basis_rows_cols(unique_basis)
+        self.basis_table_row = (
+            row_basis
+            if isinstance(row_basis, BasisTableWithEdges)
+            else BasisTableWithEdges(row_basis)
+        )
+        self.basis_table_col = (
+            col_basis
+            if isinstance(col_basis, BasisTableWithEdges)
+            else BasisTableWithEdges(col_basis)
         )
         self._matrix_block_cls = matrix_block_cls
         self.numpy = numpy if numpy is not None else np
@@ -368,58 +391,148 @@ class Graph2Mat(Generic[ArrayType]):
             **edge_operation_kwargs,
         )
         self.interactions = self._interactions_dict(interactions)
+    
+    @staticmethod
+    def _process_basis_rows_cols(basis: Union[List[PointBasis], BasisTableWithEdges]) -> Tuple[List[PointBasis], List[PointBasis]]:
+        """Processes the basis to determine which basis is used for rows and which for columns.
+
+        If the basis has a `matrix_role` attribute, it will be used to determine the role of each basis.
+        If not, the first basis will be used for rows and the second for columns.
+
+        Parameters
+        ----------
+        basis: List[PointBasis]
+            The list of point bases.
+
+        Returns
+        -------
+        i_basis: List[PointBasis]
+            The list of point bases for rows.
+        j_basis: List[PointBasis]
+            The list of point bases for columns.
+        """
+        if isinstance(basis, BasisTableWithEdges):
+            basis = basis.basis
+        i_basis = []
+        j_basis = []
+        for b in basis:
+            if b.matrix_role == "row":
+                i_basis.append(b)
+            elif b.matrix_role == "col":
+                j_basis.append(b)
+            else:
+                # If None, it is a square matrix: same basis for rows and columns
+                i_basis.append(b)
+                j_basis.append(b)
+        assert len(i_basis) == len(j_basis), "The number of row and column bases must be the same."
+        # Make sure order if correct
+        # If it is correct, return the basis as is. If not, reorder the basis to match the order of the other basis.
+        ordered = True
+        for k in range(len(i_basis)):
+            if i_basis[k] != j_basis[k]:
+                ordered = False
+                break
+        if ordered:
+            return i_basis, j_basis
+        else:
+            print("Reordering basis to match rows and columns.")
+
+            # Reorder basis: check that the point type is the same for i_basis[k] and j_basis[k]
+            ordered_i_basis = i_basis.copy()
+            ordered_j_basis = []
+            for k in range(len(i_basis)):
+                # find the index of the point type of i_basis[k] in j_basis
+                idx = next((
+                    (j for j, b in enumerate(j_basis) if b.type == i_basis[k].type), None))
+                if idx is None:
+                    raise ValueError(f"Point type {i_basis[k].type} not found in j_basis.")
+                ordered_j_basis.append(j_basis[idx])
+            return ordered_i_basis, ordered_j_basis
 
     def _init_center_types(self, basis_grouping):
         self.basis_grouping = basis_grouping
 
+        # TODO: cambiar -- hacerlo para rows y cols
         # Do the grouping
+        # SN: Done separately for rows and columns because the basis
+        # can be different for rows and columns.
         (
-            self.graph2mat_table,
-            self.types_to_graph2mat,
-            self.edge_types_to_graph2mat,
-            self.basis_filters,
-        ) = self.basis_table.group(self.basis_grouping)
+            self.graph2mat_table_row,
+            self.types_to_graph2mat_row,
+            self.edge_types_to_graph2mat_row,
+            self.basis_filters_row,
+        ) = self.basis_table_row.group(self.basis_grouping)
+
+        (
+            self.graph2mat_table_col,
+            self.types_to_graph2mat_col,
+            self.edge_types_to_graph2mat_col,
+            self.basis_filters_col,
+        ) = self.basis_table_col.group(self.basis_grouping)
+
+        print('self.types_to_graph2mat_row:', self.types_to_graph2mat_row)
+        print('self.edge_types_to_graph2mat_row:', self.edge_types_to_graph2mat_row)
 
         # Prepare the filters to mask the output of the operations
         # Currently self.basis_filters is only not None when
         # basis_grouping is "max". Otherwise, we don't need to apply
-        # any mask because the
-        if self.basis_filters is not None:
+        # any mask
+        # SN: again, separately for rows and columns.
+        if self.basis_filters_row is not None:
             original_edgetypes = self.basis_table.edge_type_to_point_types
-            self.node_filters = np.einsum(
-                "ia, ib ->iab", self.basis_filters, self.basis_filters
+            self.node_filters_row = np.einsum(
+                "ia, ib ->iab", self.basis_filters_row, self.basis_filters_row
             )
 
-            self.edge_filters = np.einsum(
+            self.edge_filters_row = np.einsum(
                 "ia, ib ->iab",
-                self.basis_filters[original_edgetypes[:, 0]],
-                self.basis_filters[original_edgetypes[:, 1]],
+                self.basis_filters_row[original_edgetypes[:, 0]],
+                self.basis_filters_row[original_edgetypes[:, 1]],
             )
         else:
-            self.edge_filters = None
-            self.node_filters = None
+            self.edge_filters_row = None
+            self.node_filters_row = None
+
+        if self.basis_filters_col is not None:
+            original_edgetypes = self.basis_table.edge_type_to_point_types
+            self.node_filters_col = np.einsum(
+                "ia, ib ->iab", self.basis_filters_col, self.basis_filters_col
+            )
+
+            self.edge_filters_col = np.einsum(
+                "ia, ib ->iab",
+                self.basis_filters_col[original_edgetypes[:, 0]],
+                self.basis_filters_col[original_edgetypes[:, 1]],
+            )
+        else:
+            self.edge_filters_col = None
+            self.node_filters_col = None
 
     def _init_self_interactions(self, **kwargs) -> List[MatrixBlock]:
         self_interactions = []
 
-        for point_type_basis in self.graph2mat_table.basis:
-            if len(point_type_basis.basis) == 0:
+        for i_point_type_basis in range(len(self.graph2mat_table_row.basis)):
+            row_basis = self.graph2mat_table_row.basis[i_point_type_basis]
+            col_basis = self.graph2mat_table_col.basis[i_point_type_basis]
+            if len(row_basis.basis) == 0 or len(col_basis.basis) == 0:
                 # The point type has no basis functions
                 self_interactions.append(None)
             else:
                 self_interactions.append(
                     self._matrix_block_cls(
-                        i_basis=point_type_basis,
-                        j_basis=point_type_basis,
+                        i_basis=row_basis,
+                        j_basis=col_basis,
                         **kwargs,
                     )
                 )
+        # BORRAR
+        print('self_interactions:', self_interactions)
 
         return self_interactions
 
     def _init_interactions(self, **kwargs) -> Dict[Tuple[int, int], MatrixBlock]:
         point_type_combinations = itertools.combinations_with_replacement(
-            range(len(self.graph2mat_table.basis)), 2
+            range(len(self.graph2mat_table_row.basis)), 2   # row and col basis have the same length, so we can use either one
         )
 
         interactions = {}
@@ -433,8 +546,8 @@ class Graph2Mat(Generic[ArrayType]):
                 perms.append((-edge_type, neigh_type, point_type))
 
             for signed_edge_type, point_i, point_j in perms:
-                i_basis = self.graph2mat_table.basis[point_i]
-                j_basis = self.graph2mat_table.basis[point_j]
+                i_basis = self.graph2mat_table_row.basis[point_i]
+                j_basis = self.graph2mat_table_col.basis[point_j]
 
                 if len(i_basis.basis) == 0 or len(j_basis.basis) == 0:
                     # One of the involved point types has no basis functions
@@ -448,7 +561,8 @@ class Graph2Mat(Generic[ArrayType]):
                         symm_transpose=(self.symmetric and neigh_type == point_type),
                         **kwargs,
                     )
-
+        print('interactions:', interactions)
+        print('interactions (str keys):', {str(k): v for k, v in interactions.items()})
         return {str(k): v for k, v in interactions.items()}
 
     def _get_preprocessing_nodes_summary(self) -> str:
