@@ -18,7 +18,7 @@ from typing import (
 
 import numpy as np
 
-from ..data import BasisMatrixData, BasisTableWithEdges
+from ..data import BasisMatrixData, BasisTableWithEdges, BasisTableWithEdges
 from ..data.basis import PointBasis
 from ._labels_resort import get_labels_resorting_array
 from .matrixblock import MatrixBlock
@@ -275,9 +275,13 @@ class Graph2Mat(Generic[ArrayType]):
     graph2mat_table_row: List[PointBasis]
     graph2mat_table_col: List[PointBasis]
     #: The mapping of types from the original basis to the graph2mat basis.
-    types_to_graph2mat: ArrayType
+    types_to_graph2mat_row: ArrayType
+    types_to_graph2mat_col: ArrayType
     #: The mapping of edge types from the original basis to the graph2mat basis.
-    edge_types_to_graph2mat: ArrayType
+    edge_types_to_graph2mat_row: ArrayType
+    edge_types_to_graph2mat_col: ArrayType
+    # If the matrix is square (same basis for rows and columns)
+    is_square: bool
     #: If the ``basis_grouping`` is "max", this is a mask that is used to select
     #: the values for the original basis from the new grouped basis. This has
     #: shape (n_point_types, dim_new_basis).
@@ -324,29 +328,17 @@ class Graph2Mat(Generic[ArrayType]):
         # Asses symmetry: if symmetric, it means that all the unique basis have matrix_role=None,
         # and the matrix is square. If not symmetric, we can have different basis for rows and columns.
 
-        if isinstance(unique_basis, BasisTableWithEdges):
-            is_square = all(
-                b.matrix_role is None for b in unique_basis.basis)
-        else:
-            is_square = all(
-                b.matrix_role is None for b in unique_basis)
+        if not isinstance(unique_basis, BasisTableWithEdges):
+            unique_basis = BasisTableWithEdges(unique_basis)
 
-        if is_square != symmetric:
+        if unique_basis.is_square != symmetric:
             raise ValueError(
                 f"Asked for symmetric={symmetric}, but the matrix is not square. The basis has matrix_role={[(b.type, b.matrix_role) for b in unique_basis]}.\
 This is inconsistent. If symmetric, all basis must have matrix_role=None. If not symmetric, basis must have matrix_role='row' or 'col'."
             )
-        row_basis, col_basis = self._process_basis_rows_cols(unique_basis)
-        self.basis_table_row = (
-            row_basis
-            if isinstance(row_basis, BasisTableWithEdges)
-            else BasisTableWithEdges(row_basis)
-        )
-        self.basis_table_col = (
-            col_basis
-            if isinstance(col_basis, BasisTableWithEdges)
-            else BasisTableWithEdges(col_basis)
-        )
+        self.is_square = unique_basis.is_square
+    
+        self.basis_table = unique_basis
         self._matrix_block_cls = matrix_block_cls
         self.numpy = numpy if numpy is not None else np
         self._self_interactions_list = self_interactions_list
@@ -391,63 +383,7 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
             **edge_operation_kwargs,
         )
         self.interactions = self._interactions_dict(interactions)
-    
-    @staticmethod
-    def _process_basis_rows_cols(basis: Union[List[PointBasis], BasisTableWithEdges]) -> Tuple[List[PointBasis], List[PointBasis]]:
-        """Processes the basis to determine which basis is used for rows and which for columns.
 
-        If the basis has a `matrix_role` attribute, it will be used to determine the role of each basis.
-        If not, the first basis will be used for rows and the second for columns.
-
-        Parameters
-        ----------
-        basis: List[PointBasis]
-            The list of point bases.
-
-        Returns
-        -------
-        i_basis: List[PointBasis]
-            The list of point bases for rows.
-        j_basis: List[PointBasis]
-            The list of point bases for columns.
-        """
-        if isinstance(basis, BasisTableWithEdges):
-            basis = basis.basis
-        i_basis = []
-        j_basis = []
-        for b in basis:
-            if b.matrix_role == "row":
-                i_basis.append(b)
-            elif b.matrix_role == "col":
-                j_basis.append(b)
-            else:
-                # If None, it is a square matrix: same basis for rows and columns
-                i_basis.append(b)
-                j_basis.append(b)
-        assert len(i_basis) == len(j_basis), "The number of row and column bases must be the same."
-        # Make sure order if correct
-        # If it is correct, return the basis as is. If not, reorder the basis to match the order of the other basis.
-        ordered = True
-        for k in range(len(i_basis)):
-            if i_basis[k] != j_basis[k]:
-                ordered = False
-                break
-        if ordered:
-            return i_basis, j_basis
-        else:
-            print("Reordering basis to match rows and columns.")
-
-            # Reorder basis: check that the point type is the same for i_basis[k] and j_basis[k]
-            ordered_i_basis = i_basis.copy()
-            ordered_j_basis = []
-            for k in range(len(i_basis)):
-                # find the index of the point type of i_basis[k] in j_basis
-                idx = next((
-                    (j for j, b in enumerate(j_basis) if b.type == i_basis[k].type), None))
-                if idx is None:
-                    raise ValueError(f"Point type {i_basis[k].type} not found in j_basis.")
-                ordered_j_basis.append(j_basis[idx])
-            return ordered_i_basis, ordered_j_basis
 
     def _init_center_types(self, basis_grouping):
         self.basis_grouping = basis_grouping
@@ -457,56 +393,33 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
         # SN: Done separately for rows and columns because the basis
         # can be different for rows and columns.
         (
-            self.graph2mat_table_row,
-            self.types_to_graph2mat_row,
-            self.edge_types_to_graph2mat_row,
-            self.basis_filters_row,
-        ) = self.basis_table_row.group(self.basis_grouping)
+            graph2mat_tables,
+            self.types_to_graph2mat,
+            self.edge_types_to_graph2mat,
+            self.basis_filters,
+        ) = self.basis_table.group(self.basis_grouping)
 
-        (
-            self.graph2mat_table_col,
-            self.types_to_graph2mat_col,
-            self.edge_types_to_graph2mat_col,
-            self.basis_filters_col,
-        ) = self.basis_table_col.group(self.basis_grouping)
-
-        print('self.types_to_graph2mat_row:', self.types_to_graph2mat_row)
-        print('self.edge_types_to_graph2mat_row:', self.edge_types_to_graph2mat_row)
+        self.graph2mat_table_row = graph2mat_tables[0]
+        self.graph2mat_table_col = graph2mat_tables[1]
 
         # Prepare the filters to mask the output of the operations
         # Currently self.basis_filters is only not None when
         # basis_grouping is "max". Otherwise, we don't need to apply
         # any mask
-        # SN: again, separately for rows and columns.
-        if self.basis_filters_row is not None:
+        if self.basis_filters is not None:
             original_edgetypes = self.basis_table.edge_type_to_point_types
             self.node_filters_row = np.einsum(
-                "ia, ib ->iab", self.basis_filters_row, self.basis_filters_row
+                "ia, ib ->iab", self.basis_filters, self.basis_filters
             )
 
             self.edge_filters_row = np.einsum(
                 "ia, ib ->iab",
-                self.basis_filters_row[original_edgetypes[:, 0]],
-                self.basis_filters_row[original_edgetypes[:, 1]],
+                self.basis_filters[original_edgetypes[:, 0]],
+                self.basis_filters[original_edgetypes[:, 1]],
             )
         else:
-            self.edge_filters_row = None
-            self.node_filters_row = None
-
-        if self.basis_filters_col is not None:
-            original_edgetypes = self.basis_table.edge_type_to_point_types
-            self.node_filters_col = np.einsum(
-                "ia, ib ->iab", self.basis_filters_col, self.basis_filters_col
-            )
-
-            self.edge_filters_col = np.einsum(
-                "ia, ib ->iab",
-                self.basis_filters_col[original_edgetypes[:, 0]],
-                self.basis_filters_col[original_edgetypes[:, 1]],
-            )
-        else:
-            self.edge_filters_col = None
-            self.node_filters_col = None
+            self.edge_filters = None
+            self.node_filters = None
 
     def _init_self_interactions(self, **kwargs) -> List[MatrixBlock]:
         self_interactions = []
@@ -526,7 +439,7 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
                     )
                 )
         # BORRAR
-        print('self_interactions:', self_interactions)
+        # print('self_interactions: \n', self_interactions)
 
         return self_interactions
 
@@ -561,8 +474,8 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
                         symm_transpose=(self.symmetric and neigh_type == point_type),
                         **kwargs,
                     )
-        print('interactions:', interactions)
-        print('interactions (str keys):', {str(k): v for k, v in interactions.items()})
+        # BORRAR
+        # print('interactions: \n', interactions)
         return {str(k): v for k, v in interactions.items()}
 
     def _get_preprocessing_nodes_summary(self) -> str:
@@ -601,47 +514,62 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
         It is better than the pytorch repr to understand the high level
         architecture of the module, but it is not as detailed.
         """
+        try:
 
-        s = ""
+            s = ""
 
-        s += f"Preprocessing nodes: {self._get_preprocessing_nodes_summary()}\n"
+            s += f"Preprocessing nodes: {self._get_preprocessing_nodes_summary()}\n"
 
-        s += f"Preprocessing edges: {self._get_preprocessing_edges_summary()}\n"
+            s += f"Preprocessing edges: {self._get_preprocessing_edges_summary()}\n"
 
-        s += "Node operations:"
-        for i, x in enumerate(self.self_interactions):
-            point = self.graph2mat_table.basis[i]
+            s += "Node operations:"
+            for i, x in enumerate(self.self_interactions):
+                point_r = self.graph2mat_table_row.basis[i]
+                point_c = self.graph2mat_table_col.basis[i]
 
-            if x is None:
-                s += f"\n ({point.type}) No basis functions."
-                continue
+                if x is None:
+                    s += f"\n ({point_r.type}, {point_c.type}) No basis functions."
+                    continue
+                if self.is_square:
+                    s += f"\n ({point_r.type}) "
+                else:
+                    s += f"\n ({point_r.type}r, {point_c.type}c) "
 
-            s += f"\n ({point.type}) "
+                if x.symm_transpose:
+                    s += " [XY = YX.T]"
 
-            if x.symm_transpose:
-                s += " [XY = YX.T]"
+                s += f" {self._get_node_operation_summary(x)}"
 
-            s += f" {self._get_node_operation_summary(x)}"
+            s += "\nEdge operations:"
+            for k, x in self.interactions.items():
 
-        s += "\nEdge operations:"
-        for k, x in self.interactions.items():
-            point_type, neigh_type, edge_type = map(int, k[1:-1].split(","))
+                
+                point_type, neigh_type, edge_type = map(int, k[1:-1].split(","))
 
-            point = self.graph2mat_table.basis[point_type]
-            neigh = self.graph2mat_table.basis[neigh_type]
+                # BORRAR
+                # print(f"Edge operation {k}: {x}")
+                # print(f"point_type: {point_type}, neigh_type: {neigh_type}, edge_type: {edge_type}")
 
-            if x is None:
-                s += f"\n ({point.type}, {neigh.type}) No basis functions."
-                continue
+                # TODO: review this in nonsym case
+                if self.is_square:
+                    point = self.graph2mat_table_row.basis[point_type]
+                    neigh = self.graph2mat_table_row.basis[neigh_type]
 
-            s += f"\n ({point.type}, {neigh.type})"
+                    if x is None:
+                        s += f"\n ({point.type}, {neigh.type}) No basis functions."
+                        continue
 
-            if x.symm_transpose:
-                s += " [XY = YX.T]"
+                    s += f"\n ({point.type}, {neigh.type})"
 
-            s += f" {self._get_edge_operation_summary(x)}."
+                    if x.symm_transpose:
+                        s += " [XY = YX.T]"
 
-        return s
+                    s += f" {self._get_edge_operation_summary(x)}."
+                else:
+                    raise NotImplementedError("Printing edge operations for non-square matrices are not implemented yet.")
+            return s
+        except Exception as e:
+            return f"Error generating summary: {e}"
 
     def forward(
         self,
@@ -972,7 +900,7 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
         return self._get_labels_resort_index(
             types=types,
             original_types=original_types,
-            shapes=self.graph2mat_table.point_block_shape,
+            shapes=self.basis_table.point_block_shape,
             filters=self.node_filters,
             # original_sizes=self.basis_table.point_block_size,
             transpose_neg=False,
@@ -1006,7 +934,7 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
         return self._get_labels_resort_index(
             types=types,
             original_types=original_types,
-            shapes=self.graph2mat_table.edge_block_shape,
+            shapes=self.basis_table.edge_block_shape,
             filters=self.edge_filters,
             transpose_neg=self.symmetric and self.basis_grouping == "basis_shape",
             **kwargs,
