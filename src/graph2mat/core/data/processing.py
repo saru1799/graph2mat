@@ -805,7 +805,6 @@ class MatrixDataProcessor:
             kwargs["n_supercells"] = nsc.prod()
 
             # SN: changed this -- the n_orbitals can be diff in cols and rows if its non square
-
             n_orbitals_row = [point.basis_size for point in self.basis_table.row.basis]
             n_orbitals_col = [point.basis_size for point in self.basis_table.col.basis]
             kwargs["orbitals_row"] = [n_orbitals_row[at_type] for at_type in point_types]

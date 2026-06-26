@@ -18,7 +18,7 @@ from typing import (
 
 import numpy as np
 
-from ..data import BasisMatrixData, BasisTableWithEdges, BasisTableWithEdges
+from ..data import BasisMatrixData, BasisTableWithEdges
 from ..data.basis import PointBasis
 from ._labels_resort import get_labels_resorting_array
 from .matrixblock import MatrixBlock
