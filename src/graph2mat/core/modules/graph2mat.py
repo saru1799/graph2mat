@@ -900,7 +900,7 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
         return self._get_labels_resort_index(
             types=types,
             original_types=original_types,
-            shapes=self.basis_table.point_block_shape,
+            shapes=self.basis_table.point_block_shape,  # SN: changed: the full info is in basis_table, graph2mat table has row and col.
             filters=self.node_filters,
             # original_sizes=self.basis_table.point_block_size,
             transpose_neg=False,
