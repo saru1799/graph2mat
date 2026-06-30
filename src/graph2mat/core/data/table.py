@@ -387,45 +387,6 @@ class BasisTableWithEdges_rowcol:
         """Maximum cutoff radius in the basis."""
         return self.R.max()
 
-    def point_block_pointer(self, point_types: Sequence[int]) -> np.ndarray:
-        """Pointers to the beggining of node blocks in a flattened matrix.
-
-        Given a flat array that contains all the elements of the matrix
-        corresponing to self-interacting matrix blocks, the indices returned
-        here point to the beggining of the values for each block.
-
-        These pointers are useful to recreate the full matrix, for example.
-
-        Parameters
-        ----------
-        point_types:
-            The type indices for the points in the system, in the order in
-            which they appear in the flattened matrix.
-        """
-        pointers = np.zeros(len(point_types) + 1, dtype=np.int32)
-        np.cumsum(self.point_block_size[point_types], out=pointers[1:])
-        return pointers
-
-    def edge_block_pointer(self, edge_types: Sequence[int]):
-        """Pointers to the beggining of edge blocks in a flattened matrix.
-
-        Given a flat array that contains all the elements of the matrix
-        corresponing to matrix blocks of interactions between two different
-        points, the indices returned here point to the beggining of the values
-        for each block.
-
-        These pointers are useful to recreate the full matrix, for example.
-
-        Parameters
-        ----------
-        edge_types:
-            The type indices for the edges in the system, in the order in
-            which they appear in the flattened matrix.
-        """
-        pointers = np.zeros(len(edge_types) + 1, dtype=np.int32)
-        np.cumsum(self.edge_block_size[edge_types], out=pointers[1:])
-        return pointers
-
     def get_sisl_atoms(self) -> List[sisl.Atom]:
         """Returns a list of sisl atoms corresponding to the basis.
 
@@ -576,27 +537,24 @@ class BasisTableWithEdges:
         assert len(i_basis) == len(j_basis), "The number of row and column bases must be the same."
         # Make sure order if correct
         # If it is correct, return the basis as is. If not, reorder the basis to match the order of the other basis.
-        ordered = True
-        for k in range(len(i_basis)):
-            if i_basis[k] != j_basis[k]:
-                ordered = False
-                break
-        if ordered:
+        # Quick check if already correctly ordered
+        if all(a.type == b.type for a, b in zip(i_basis, j_basis)):
             return i_basis, j_basis
-        else:
-            print("Reordering basis to match rows and columns.")
+        print("Reordering basis to match rows and columns.")
 
-            # Reorder basis: check that the point type is the same for i_basis[k] and j_basis[k]
-            ordered_i_basis = i_basis.copy()
-            ordered_j_basis = []
-            for k in range(len(i_basis)):
-                # find the index of the point type of i_basis[k] in j_basis
-                idx = next((
-                    (j for j, b in enumerate(j_basis) if b.type == i_basis[k].type), None))
-                if idx is None:
-                    raise ValueError(f"Point type {i_basis[k].type} not found in j_basis.")
-                ordered_j_basis.append(j_basis[idx])
-            return ordered_i_basis, ordered_j_basis
+        type_to_index = {}
+        for idx, elem in enumerate(j_basis):
+            if elem.type in type_to_index:
+                raise ValueError(f"Duplicate type '{elem.type}' found in j_basis")
+            type_to_index[elem.type] = idx
+        # Reorder basis: check that the point type is the same for i_basis[k] and j_basis[k]
+        ordered_j_basis = []
+        for elem in i_basis:
+            idx = type_to_index.get(elem.type)
+            if idx is None:
+                raise ValueError(f"Type '{elem.type}' not found in j_basis")
+            ordered_j_basis.append(j_basis[idx])
+        return i_basis, ordered_j_basis
 
     def check_nonsquare_properties(self):
 
@@ -629,9 +587,9 @@ Got {types_row} and {types_col}."
                 new_table_row, point_type_conversion_row, edge_type_conversion_row, filters_row = self.row.group(grouping)
                 new_table_col, point_type_conversion_col, edge_type_conversion_col, filters_col = self.col.group(grouping)
                 if point_type_conversion_row != point_type_conversion_col:
-                    raise ValueError("Row and column point type conversions must be the same for non-square matrices.")
+                    raise ValueError(f"Row and column point type conversions must be the same for non-square matrices. Got {point_type_conversion_row} and {point_type_conversion_col}.")
                 if edge_type_conversion_row != edge_type_conversion_col:
-                    raise ValueError("Row and column edge type conversions must be the same for non-square matrices.")
+                    raise ValueError(f"Row and column edge type conversions must be the same for non-square matrices. Got {edge_type_conversion_row} and {edge_type_conversion_col}.")
                 # TODO: for the filters ?
                 return  (new_table_row, new_table_col), point_type_conversion_row, edge_type_conversion_row, filters_row
             else:
@@ -672,6 +630,7 @@ with grouping {grouping} is not implemented yet.")
         same &= self.col == other.col
         return same
     
+    # SN: moved from the old BasisTableWithEdges_rowcol class to here
     def type_to_index(self, point_type: Union[str, int]) -> int:
         """Converts from the type ID to the index of the point type in the table.
 
@@ -682,6 +641,7 @@ with grouping {grouping} is not implemented yet.")
         """
         return self.types.index(point_type)
 
+    # SN: moved from the old BasisTableWithEdges_rowcol class to here
     def types_to_indices(self, types: Sequence) -> np.ndarray:
         """Converts from an array of types IDs to their indices in the basis table.
 
@@ -705,6 +665,7 @@ with grouping {grouping} is not implemented yet.")
         # And reconstruct the original array, which is now an array of indices instead of types
         return unique_indices[inverse_indices]
 
+    # SN: moved from the old BasisTableWithEdges_rowcol class to here
     def point_type_to_edge_type(self, point_type: np.ndarray) -> Union[int, np.ndarray]:
         """Converts pairs of point types to edge types.
 
@@ -715,6 +676,47 @@ with grouping {grouping} is not implemented yet.")
             Pair of point types for each edge.
         """
         return self.edge_type[point_type[0], point_type[1]]
+
+    # SN: moved from the old BasisTableWithEdges_rowcol class to here
+    def point_block_pointer(self, point_types: Sequence[int]) -> np.ndarray:
+        """Pointers to the beggining of node blocks in a flattened matrix.
+
+        Given a flat array that contains all the elements of the matrix
+        corresponing to self-interacting matrix blocks, the indices returned
+        here point to the beggining of the values for each block.
+
+        These pointers are useful to recreate the full matrix, for example.
+
+        Parameters
+        ----------
+        point_types:
+            The type indices for the points in the system, in the order in
+            which they appear in the flattened matrix.
+        """
+        pointers = np.zeros(len(point_types) + 1, dtype=np.int32)
+        np.cumsum(self.point_block_size[point_types], out=pointers[1:])
+        return pointers
+
+    # SN: moved from the old BasisTableWithEdges_rowcol class to here
+    def edge_block_pointer(self, edge_types: Sequence[int]):
+        """Pointers to the beggining of edge blocks in a flattened matrix.
+
+        Given a flat array that contains all the elements of the matrix
+        corresponing to matrix blocks of interactions between two different
+        points, the indices returned here point to the beggining of the values
+        for each block.
+
+        These pointers are useful to recreate the full matrix, for example.
+
+        Parameters
+        ----------
+        edge_types:
+            The type indices for the edges in the system, in the order in
+            which they appear in the flattened matrix.
+        """
+        pointers = np.zeros(len(edge_types) + 1, dtype=np.int32)
+        np.cumsum(self.edge_block_size[edge_types], out=pointers[1:])
+        return pointers
 
 
 class AtomicTableWithEdges(BasisTableWithEdges):

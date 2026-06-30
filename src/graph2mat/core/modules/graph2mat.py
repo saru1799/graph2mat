@@ -333,11 +333,11 @@ class Graph2Mat(Generic[ArrayType]):
 
         if unique_basis.is_square != symmetric:
             raise ValueError(
-                f"Asked for symmetric={symmetric}, but the matrix is not square. The basis has matrix_role={[(b.type, b.matrix_role) for b in unique_basis]}.\
+                f"Asked for symmetric={symmetric}, but the matrix is not square. The basis has matrix_role={[(b.type, b.matrix_role) for b in (unique_basis.row.basis)]}\
+(for rows) and matrix_role={[(b.type, b.matrix_role) for b in (unique_basis.col.basis)]} (for columns).\
 This is inconsistent. If symmetric, all basis must have matrix_role=None. If not symmetric, basis must have matrix_role='row' or 'col'."
             )
         self.is_square = unique_basis.is_square
-    
         self.basis_table = unique_basis
         self._matrix_block_cls = matrix_block_cls
         self.numpy = numpy if numpy is not None else np
