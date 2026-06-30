@@ -382,7 +382,8 @@ def nodes_and_edges_to_coo(
     node_vals: np.ndarray,
     edge_vals: np.ndarray,
     edge_index: np.ndarray,
-    orbitals: np.ndarray,
+    orbitals_row: np.ndarray,
+    orbitals_col: np.ndarray,
     n_supercells: int = 1,
     edge_neigh_isc: Optional[np.ndarray] = None,
     threshold: Optional[float] = None,
@@ -403,8 +404,10 @@ def nodes_and_edges_to_coo(
     edge_index
         Array of shape (2, n_edges) containing the indices of the atoms
         that participate in each edge.
-    orbitals
+    orbitals_row / orbitals_col
         Array of shape (n_nodes, ) containing the number of orbitals for each atom.
+        For contracted basis sets, rows represent the original basis, and columns the
+        contracted basis. For non-contracted basis sets, both are equal.
     n_supercells
         Number of auxiliary supercells.
     edge_neigh_isc
@@ -427,7 +430,8 @@ def nodes_and_edges_to_coo(
         node_vals=node_vals,
         edge_vals=edge_vals,
         edge_index=edge_index,
-        orbitals=orbitals,
+        orbitals_row=orbitals_row,
+        orbitals_col=orbitals_col,
         n_supercells=n_supercells,
         edge_neigh_isc=edge_neigh_isc,
         threshold=threshold,
