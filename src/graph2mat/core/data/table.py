@@ -290,12 +290,17 @@ class BasisTableWithEdges_rowcol:
         if grouping == "point_type":
             new_table = self
 
-            class A:
-                def __getitem__(self, key):
-                    return key
+            # class A:
+            #     def __getitem__(self, key):
+            #         return key
+            #     def __eq__(self, other):
+            #         return isinstance(other, A)
 
-            point_type_conversion = A()
-            edge_type_conversion = A()
+            # point_type_conversion = A()
+            # edge_type_conversion = A()
+            point_type_conversion = IdentityConversion()
+            edge_type_conversion = IdentityConversion()
+
         elif grouping == "basis_shape":
             # Get all basis sizes:
             basis_sizes = np.zeros((len(self.basis), 5), dtype=int)
@@ -403,6 +408,10 @@ class BasisTableWithEdges:
     """Storing point information accounting for different row and column point types."""
     def __init__(self, basis: Sequence[PointBasis], get_point_matrix: Optional[Callable] = None):
         self.is_square = all(b.matrix_role is None for b in basis)
+
+        # BORRAR
+        print(f"BasisTableWithEdges: is_square = {self.is_square}")
+        print(f"BasisTableWithEdges: all matrix roles = {[b.matrix_role for b in basis]}")
         row_basis, col_basis = self._process_basis_rows_cols(basis)
         self.row = (BasisTableWithEdges_rowcol(row_basis, get_point_matrix)
                     if len(row_basis) > 0 else None)
@@ -430,8 +439,15 @@ class BasisTableWithEdges:
         if self.is_square:
             self.R = self.row.R
         else:
-            # Each row and column point type can have a different cutoff radius, so we store both.
-            self.R = np.array([self.row.R, self.col.R])
+            # Each row and column point type can have a different cutoff radius.
+            # Warn if they are different, and take the maximum of the two.
+            if not np.allclose(self.row.R, self.col.R):
+                print(f"Warning: Row and column point types have different cutoff radii. Taking the maximum of the two.")
+            # BORRAR
+            print(f"Row cutoff radii: {self.row.R}")
+            print(f"Col cutoff radii: {self.col.R}")
+            print(f"Max cutoff radius: {np.max([self.row.R, self.col.R], axis=0)}")
+            self.R = np.max([self.row.R, self.col.R], axis=0)
 
         # Array to get the edge type from point types.
         point_types_to_edge_types = np.empty((n_types, n_types), dtype=np.int32)
@@ -440,36 +456,46 @@ class BasisTableWithEdges:
             # The diagonal edge type, always positive
             point_types_to_edge_types[i, i] = edge_type
             edge_type += 1
+            # The non diagonal edge types, which are negative for the lower triangular part,
+            # to account for the fact that the direction is different.
+            for j in range(i + 1, n_types):
+                point_types_to_edge_types[i, j] = edge_type
+                point_types_to_edge_types[j, i] = -edge_type
+                edge_type += 1
 
-            if self.is_square:
-                # The non diagonal edge types, which are negative for the lower triangular part,
-                # to account for the fact that the direction is different.
-                for j in range(i + 1, n_types):
-                    point_types_to_edge_types[i, j] = edge_type
-                    point_types_to_edge_types[j, i] = -edge_type
-                    edge_type += 1
-            else:
-                # For non square matrices, we don't have a lower triangular part, so we just assign
-                # the edge type for the upper triangular part and leave the lower triangular part as is.
-                for j in range(len(self.col.types)):
-                    if i != j:
-                        point_types_to_edge_types[i, j] = edge_type
-                        edge_type += 1
+            # For non square matrices, we don't have a symmetric lower triangular part,
+            # but the change in sign will still be used to indicate the direction of the edge. 
 
         self.edge_type = point_types_to_edge_types
 
+
         # And also the sizes of the blocks.
+        # SN: Here we have all possible blocks
         self.point_block_shape = np.array([self.row.basis_size, self.col.basis_size])
         self.point_block_size = self.row.basis_size * self.col.basis_size
 
+        # BORRAR
+        print("In BasisTableWithEdges: ")
+        print(f"self.edge_type == point_types_to_edge_types:\n{self.edge_type}")
+        print(f"self.point_block_shape:\n{self.point_block_shape}")
+        print(f"self.point_block_size:\n{self.point_block_size}")
+        point_types_combinations = np.array(
+                list(itertools.combinations_with_replacement(range(n_types), 2))).T
+        # Even if its not sqare, we take each direction once : we define the inverse shape, where we pass from (Ar, Bc) to (Ac, Br)
         if self.is_square:
 
-            point_types_combinations = np.array(
-                list(itertools.combinations_with_replacement(range(n_types), 2))
-            ).T
+            
             self.edge_type_to_point_types = point_types_combinations.T
             self.edge_block_shape = self.row.basis_size[point_types_combinations]
+            self.edge_block_shape_inv = self.row.basis_size[point_types_combinations]
             self.edge_block_size = self.edge_block_shape.prod(axis=0)
+            self.edge_block_size_inv = self.edge_block_shape_inv.prod(axis=0)
+
+            # BORRAR
+            print(f"Point type to edge type:\n{self.edge_type}")
+            print(f"Edge type to point types:\n{self.edge_type_to_point_types}")
+            print(f"Edge block shape:\n{self.edge_block_shape}")
+            print(f"Edge block size:\n{self.edge_block_size}")
         else:
             # Store the sizes of each point's basis — now separate for rows and cols.
             row_basis_size = self.row.basis_size
@@ -477,11 +503,6 @@ class BasisTableWithEdges:
 
             print(f"Row basis sizes: {row_basis_size}")
             print(f"Col basis sizes: {col_basis_size}")
-
-            # All (row_type, col_type) pairs — no symmetry to exploit in the non-square case.
-            point_types_combinations = np.array(
-                list(itertools.product(range(n_types), range(n_types)))
-            ).T                                         # shape: (2, n_row_types * n_col_types)
 
             self.edge_type_to_point_types = point_types_combinations.T
 
@@ -498,8 +519,16 @@ class BasisTableWithEdges:
                 row_basis_size[row_type_indices],
                 col_basis_size[col_type_indices],
             ])                                          # shape: (2, n_combos)
+            self.edge_block_shape_inv = np.array([
+                row_basis_size[col_type_indices],
+                col_basis_size[row_type_indices],
+            ])                                          # shape: (2, n_combos)
 
+            # BORRAR
+            print(f"Edge block shape:\n{self.edge_block_shape}")
+            print(f"Edge block shape inv:\n{self.edge_block_shape_inv}")
             self.edge_block_size = self.edge_block_shape.prod(axis=0)  # shape: (n_combos,)
+            self.edge_block_size_inv = self.edge_block_shape_inv.prod(axis=0)  # shape: (n_combos,)
 
     @staticmethod
     def _process_basis_rows_cols(basis: Union[List[PointBasis], BasisTableWithEdges_rowcol]) \
@@ -717,6 +746,11 @@ with grouping {grouping} is not implemented yet.")
         pointers = np.zeros(len(edge_types) + 1, dtype=np.int32)
         np.cumsum(self.edge_block_size[edge_types], out=pointers[1:])
         return pointers
+    
+    # SN: the max R must be the max among rows and cols
+    def maxR(self) -> float:
+        """Maximum cutoff radius in the basis."""
+        return max(self.row.maxR(), self.col.maxR())
 
 
 class AtomicTableWithEdges(BasisTableWithEdges):
@@ -881,3 +915,12 @@ class AtomicTableWithEdges(BasisTableWithEdges):
             self._set_state_by_filecontents(file_names, file_contents)
         else:
             self._set_state_by_atoms(d["atoms"])
+
+# SN: defined this outside to be able to compare the poijnt type conversions 
+# for nonsquare correclty: it should be fulfilled by default, but porsiacaso.
+class IdentityConversion:
+    def __getitem__(self, key):
+        return key
+    
+    def __eq__(self, other):
+        return isinstance(other, IdentityConversion)

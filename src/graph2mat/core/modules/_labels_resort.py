@@ -8,6 +8,7 @@ import cython
 def get_labels_resorting_array(
     types: cython.integral[:],
     shapes: cython.integral[:, :],
+    shapes_inv: cython.integral[:, :] = None, # SN: for cases where is not square is needed: the shape of edge i ! = -i
     transpose_neg: cython.bint = False,
 ):
     """
@@ -66,16 +67,24 @@ def get_labels_resorting_array(
     type_nlabels: cython.long[:] = np.zeros(n_types, dtype=int)
     offset: cython.long[:] = np.zeros(n_types, dtype=int)
 
+    if shapes_inv is None:
+        shapes_inv = shapes
+
     # Compute the sizes for each type
     sizes: cython.int[:] = np.zeros(n_types, dtype=np.int32)
+    sizes_inv: cython.int[:] = np.zeros(n_types, dtype=np.int32)
     for type in range(n_types):
         sizes[type] = shapes[0, type] * shapes[1, type]
+        sizes_inv[type] = shapes_inv[0, type] * shapes_inv[1, type]
+
 
     # Count the number of entries of each type
     for i_edge in range(n_entries):
-        type: cython.int = abs(types[i_edge])
-
-        type_nlabels[type] += sizes[type]
+        type: cython.int = types[i_edge]
+        if type < 0:
+            type_nlabels[abs(type)] += sizes_inv[abs(type)]
+        else:
+            type_nlabels[type] += sizes[type]
 
     # Cumsum of type_nlabels to understand where do the labels for
     # each type start.
@@ -105,7 +114,11 @@ def get_labels_resorting_array(
                 for jcol in range(cols):
                     indices[i] = start + jcol * rows + jrow
                     i += 1
-
+        elif type < 0:
+            block_size = sizes_inv[abs_type]
+            for j in range(start, start + block_size):
+                indices[i] = j
+                i += 1
         else:
             for j in range(start, start + block_size):
                 indices[i] = j

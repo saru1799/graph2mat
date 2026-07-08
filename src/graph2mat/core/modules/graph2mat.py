@@ -275,11 +275,9 @@ class Graph2Mat(Generic[ArrayType]):
     graph2mat_table_row: List[PointBasis]
     graph2mat_table_col: List[PointBasis]
     #: The mapping of types from the original basis to the graph2mat basis.
-    types_to_graph2mat_row: ArrayType
-    types_to_graph2mat_col: ArrayType
+    types_to_graph2mat: ArrayType
     #: The mapping of edge types from the original basis to the graph2mat basis.
-    edge_types_to_graph2mat_row: ArrayType
-    edge_types_to_graph2mat_col: ArrayType
+    edge_types_to_graph2mat: ArrayType
     # If the matrix is square (same basis for rows and columns)
     is_square: bool
     #: If the ``basis_grouping`` is "max", this is a mask that is used to select
@@ -331,7 +329,7 @@ class Graph2Mat(Generic[ArrayType]):
         if not isinstance(unique_basis, BasisTableWithEdges):
             unique_basis = BasisTableWithEdges(unique_basis)
 
-        if unique_basis.is_square != symmetric:
+        if not unique_basis.is_square and symmetric:
             raise ValueError(
                 f"Asked for symmetric={symmetric}, but the matrix is not square. The basis has matrix_role={[(b.type, b.matrix_role) for b in (unique_basis.row.basis)]}\
 (for rows) and matrix_role={[(b.type, b.matrix_role) for b in (unique_basis.col.basis)]} (for columns).\
@@ -515,7 +513,6 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
         architecture of the module, but it is not as detailed.
         """
         try:
-
             s = ""
 
             s += f"Preprocessing nodes: {self._get_preprocessing_nodes_summary()}\n"
@@ -524,6 +521,10 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
 
             s += "Node operations:"
             for i, x in enumerate(self.self_interactions):
+                if x.symm_transpose and not self.is_square:
+                    raise ValueError(
+                        f"Node operation {i} is symmetric transpose, but the matrix is NOT square. This is not allowed."
+                    )
                 point_r = self.graph2mat_table_row.basis[i]
                 point_c = self.graph2mat_table_col.basis[i]
 
@@ -541,32 +542,57 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
                 s += f" {self._get_node_operation_summary(x)}"
 
             s += "\nEdge operations:"
-            for k, x in self.interactions.items():
 
+            # # BORRAR
+            # print(f"self.interactions: {self.interactions}")
+            
+            for k, x in self.interactions.items():
+                if x.symm_transpose and not self.is_square:
+                    raise ValueError(
+                        f"Edge operation {k} is symmetric transpose, but the matrix is NOT square. This is not allowed."
+                    )
                 
                 point_type, neigh_type, edge_type = map(int, k[1:-1].split(","))
 
-                # BORRAR
-                # print(f"Edge operation {k}: {x}")
-                # print(f"point_type: {point_type}, neigh_type: {neigh_type}, edge_type: {edge_type}")
+                point = self.graph2mat_table_row.basis[point_type]
+                neigh = self.graph2mat_table_col.basis[neigh_type]
 
-                # TODO: review this in nonsym case
+                if x is None:
+                    s += f"\n ({point.type}, {neigh.type}) No basis functions."
+                    continue
                 if self.is_square:
-                    point = self.graph2mat_table_row.basis[point_type]
-                    neigh = self.graph2mat_table_row.basis[neigh_type]
-
-                    if x is None:
-                        s += f"\n ({point.type}, {neigh.type}) No basis functions."
-                        continue
-
                     s += f"\n ({point.type}, {neigh.type})"
-
-                    if x.symm_transpose:
-                        s += " [XY = YX.T]"
-
-                    s += f" {self._get_edge_operation_summary(x)}."
                 else:
-                    raise NotImplementedError("Printing edge operations for non-square matrices are not implemented yet.")
+                    # SN: the pairs should contain all the combinations
+                    # of the edge types, so we just have to add the specification of row/col
+                    # TODO: review this in nonsym case
+                    s += f"\n ({point.type}r, {neigh.type}c)"
+
+                if x.symm_transpose:
+                    s += " [XY = YX.T]"
+
+                s += f" {self._get_edge_operation_summary(x)}."
+
+                # # BORRAR
+                # print(s)
+                
+                # point = self.graph2mat_table_row.basis[point_type]
+                # neigh = self.graph2mat_table_col.basis[neigh_type]
+
+                # if x is None:
+                #     print(" x is None ")
+                #     print(f" ({point.type}, {neigh.type}) No basis functions.")
+                #     continue
+                # print(" ({point.type}, {neigh.type})")
+                # print(f"({point.type}r, {neigh.type})")
+
+                # if x.symm_transpose:
+                #     print(" x.symm_transpose is True ")
+                #     print(" [XY = YX.T]")
+                # print(" self._get_edge_operation_summary(x) , being x ", x)
+                # print(f" {self._get_edge_operation_summary(x)}.")
+                # # END BORRAR
+                # raise NotImplementedError("Printing edge operations for non-square matrices are not implemented yet.")
             return s
         except Exception as e:
             return f"Error generating summary: {e}"
@@ -794,6 +820,10 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
         outputs = []
 
         graph2mat_edge_types = self.edge_types_to_graph2mat[edge_types]
+        # BORRAR
+        print("In Graph2Mat _forward_interactions: ")
+        print("graph2mat_edge_types: ", graph2mat_edge_types)
+        print("edge_types: ", edge_types)
 
         # Call each unique interaction function with only the features
         # of edges that correspond to that type.
@@ -835,6 +865,10 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
                 i_edges = graph2mat_edge_types[mask] == edge_type
                 j_edges = ~i_edges
 
+                print("In Graph2Mat _forward_interactions: ")
+                print("i_edges: (graph2mat_edge_types[mask] == edge_type) ", i_edges)
+                print("j_edges: (~i_edges)", j_edges)
+
             # Create the tuples of edge features. Each tuple contains the two directions of the
             # edge. The first item contains the "forward" direction, the second the "reverse" direction.
             filtered_edge_kwargs = {
@@ -874,6 +908,16 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
             graph2mat_edge_types, original_types=edge_types
         )
 
+        # BORRAR
+        print("In Graph2Mat _forward_interactions (after get_edgelabels_resort_index): ")
+        print("graph2mat_edge_types: ", graph2mat_edge_types)
+        print("edge_types (original_types): ", edge_types)
+        print("unsorted_edge_labels: ", unsorted_edge_labels)
+        print("sort_indices: ", sort_indices)
+        print("unsorted_edge_labels[sort_indices]: ", unsorted_edge_labels[sort_indices])
+        print("unsorted_edge_labels.shape: ", unsorted_edge_labels.shape)
+        print("new shape: ", unsorted_edge_labels[sort_indices].shape)
+
         # Do the resorting and return the result.
         return unsorted_edge_labels[sort_indices]
 
@@ -901,6 +945,7 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
             types=types,
             original_types=original_types,
             shapes=self.basis_table.point_block_shape,  # SN: changed: the full info is in basis_table, graph2mat table has row and col.
+            shapes_inv=self.basis_table.point_block_shape,
             filters=self.node_filters,
             # original_sizes=self.basis_table.point_block_size,
             transpose_neg=False,
@@ -935,6 +980,7 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
             types=types,
             original_types=original_types,
             shapes=self.basis_table.edge_block_shape,
+            shapes_inv=self.basis_table.edge_block_shape_inv,
             filters=self.edge_filters,
             transpose_neg=self.symmetric and self.basis_grouping == "basis_shape",
             **kwargs,
@@ -944,6 +990,7 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
         self,
         types: np.ndarray,
         shapes: np.ndarray,
+        shapes_inv: np.ndarray,
         original_types: ArrayType,
         filters: ArrayType,
         transpose_neg: bool = False,
@@ -976,11 +1023,23 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
         if self.basis_grouping == "max":
             return filters[original_types].ravel()
         else:
+            # BORRAR
+            print("In Graph2Mat _get_labels_resort_index: ")
+            print('BEFORE CALLING get_labels_resorting_array')
+            print("types: ", types)
+            print("shapes: ", shapes)
+            print("shapes_inv: ", shapes_inv)
+            print("transpose_neg: ", transpose_neg)
+            print("kwargs: ", kwargs)
             indices = get_labels_resorting_array(
                 types,
                 shapes=shapes.astype(types.dtype),
+                shapes_inv=shapes_inv.astype(types.dtype),
                 transpose_neg=transpose_neg,
                 **kwargs,
             )
+            # BORRAR
+            print('AFTER CALLING get_labels_resorting_array')
+            print("indices: ", indices)
 
         return indices
