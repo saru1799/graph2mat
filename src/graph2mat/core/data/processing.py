@@ -198,6 +198,10 @@ class MatrixDataProcessor:
 
         if is_batch is None:
             is_batch = isinstance(data, Batch)
+        # BORRAR
+        print("In processing.py matrix_from_data:")
+        print("data:", data)
+        print("is_batch:", is_batch)
         if is_batch:
             return tuple(
                 self.yield_from_batch(
@@ -269,6 +273,11 @@ class MatrixDataProcessor:
             point_types = arrays.point_types
             edge_types = arrays.edge_types
 
+            print("In MatrixDataProcessor.yield_from_batch:")
+            print("arrays=data.numpy_arrays():", arrays)
+            print("atom_ptr:", atom_ptr)
+            print("edge_ptr:", edge_ptr)
+
             # Get the values for the node blocks and the pointer to the start of each block.
             node_labels_ptr = self.basis_table.point_block_pointer(point_types)
 
@@ -297,6 +306,17 @@ class MatrixDataProcessor:
                 new_edge_label = edge_labels[
                     edge_labels_ptr[edge_start] : edge_labels_ptr[edge_end]
                 ]
+
+                # BORRAR
+                print(f"example {i} (batch):")
+                print("  atom_start:", atom_start)
+                print("  atom_end:", atom_end)
+                print("  edge_start:", edge_start)
+                print("  edge_end:", edge_end)
+                print("  new_edge_label = edge_labels[edge_labels_ptr[edge_start]: edge_labels_ptr[edge_end]]:")
+                print(f" this takes the edge labels from edge_labels_ptr[edge_start] = edge_labels_ptr[{edge_start}] = {edge_labels_ptr[edge_start]}")
+                print(f" to edge_labels_ptr[edge_end] = edge_labels_ptr[{edge_end}] = {edge_labels_ptr[edge_end]}")
+                print(f"  len(new_edge_label) = {len(new_edge_label)}")
 
                 if getattr(example, "point_labels", None) is not None:
                     assert len(new_atom_label) == len(example.point_labels)
@@ -842,9 +862,13 @@ class MatrixDataProcessor:
         # BORRAR
         print("In labels_to: of MatrixDataProcessor")
         print("data_format:", data_format)
-        print("node_labels:", node_labels)
-        print("edge_labels:", edge_labels)
+        print("out_format:", out_format)
+        print("len node_labels:", len(node_labels))
+        print("len edge_labels:", len(edge_labels))
         print("edge_index:", edge_index)
+        print("neigh_isc:", neigh_isc)
+        print("self.symmetric_matrix:", self.symmetric_matrix)
+        print("calling conversions.get_converter with data_format:", data_format, "and out_format:", out_format)
         # Construct the matrix.
         matrix = conversions.get_converter(data_format, out_format)(
             node_vals=node_labels,

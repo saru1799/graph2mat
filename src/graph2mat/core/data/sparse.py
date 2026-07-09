@@ -362,6 +362,16 @@ def _nodes_and_edges_to_coo(
         opposite direction is then created as the transpose.
     """
 
+    # BORRAR
+    print(f"In sparse.py _nodes_and_edges_to_coo:")
+    print(f"calling _blockmatrix_coo_coords with:")
+    print(f"orbitals_row: {orbitals_row}")
+    print(f"orbitals_col: {orbitals_col}")
+    print(f"edge_index: {edge_index}")
+    print(f"n_supercells: {n_supercells}")
+    print(f"edge_neigh_isc: {edge_neigh_isc}")
+    print(f"symmetrize_edges: {symmetrize_edges}")
+
     rows, cols, shape = _blockmatrix_coo_coords(
         orbitals_row=orbitals_row,
         orbitals_col=orbitals_col,

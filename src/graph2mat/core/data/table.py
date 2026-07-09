@@ -724,6 +724,11 @@ with grouping {grouping} is not implemented yet.")
         """
         pointers = np.zeros(len(point_types) + 1, dtype=np.int32)
         np.cumsum(self.point_block_size[point_types], out=pointers[1:])
+        # BORRAR
+        print(f"In BasisTableWithEdges.point_block_pointer:")
+        print(f"  point_types = {point_types}")
+        print(f"  point_block_size = {self.point_block_size}")
+        print(f"  pointers = {pointers}")
         return pointers
 
     # SN: moved from the old BasisTableWithEdges_rowcol class to here
@@ -744,7 +749,23 @@ with grouping {grouping} is not implemented yet.")
             which they appear in the flattened matrix.
         """
         pointers = np.zeros(len(edge_types) + 1, dtype=np.int32)
-        np.cumsum(self.edge_block_size[edge_types], out=pointers[1:])
+        if self.is_square:
+            np.cumsum(self.edge_block_size[np.abs(edge_types)], out=pointers[1:])
+        else:
+            # In non-square case, the edge block size is not symmetric, so for 
+            # negative values of
+            # New conditional selection:
+            sizes = np.where(edge_types > 0,
+                            self.edge_block_size[edge_types],          # positive → forward size
+                            self.edge_block_size_inv[-edge_types])     # non‑positive → backward size (use absolute index)
+
+            np.cumsum(sizes, out=pointers[1:])
+
+        # BORRAR
+        print(f"In BasisTableWithEdges.edge_block_pointer:")
+        print(f"  edge_types = {edge_types}")
+        print(f"  edge_block_size = {self.edge_block_size}")
+        print(f"  pointers = {pointers}")
         return pointers
     
     # SN: the max R must be the max among rows and cols
