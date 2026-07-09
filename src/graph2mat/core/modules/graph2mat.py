@@ -1021,7 +1021,18 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
             This is only used when ``basis_grouping != "max"``.
         """
         if self.basis_grouping == "max":
-            return filters[original_types].ravel()
+            if self.symmetric:
+                mask = filters[original_types].ravel()
+            else:
+                abs_original_types = abs(original_types)
+                filts = filters[abs_original_types]
+                # We need to transpose the filters for the negative types.
+                filts = np.where(
+                    original_types[:, None, None] < 0, filts.transpose(0, 2, 1), filts
+                )
+                mask = filts.ravel()
+
+            return np.where(mask)[0]
         else:
             # BORRAR
             print("In Graph2Mat _get_labels_resort_index: ")
