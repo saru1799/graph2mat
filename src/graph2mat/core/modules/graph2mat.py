@@ -17,6 +17,7 @@ from typing import (
 )
 
 import numpy as np
+import torch
 
 from ..data import BasisMatrixData, BasisTableWithEdges
 from ..data.basis import PointBasis
@@ -975,6 +976,34 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
         if self.symmetric:
             types = types[::2]
             original_types = original_types[::2]
+
+        def reorder_array(arr):
+            # SN: Pol says this is the correct order...
+            # So here is a quick fix
+            """
+            Reorder a list of numbers:
+            - Primary key: absolute value (ascending)
+            - Secondary key: sign (positive/zero before negative)
+
+            Parameters:
+                arr (list): list of numbers (int/float)
+
+            Returns:
+                list: new list with the reordered elements
+            """
+            idx1 = torch.argsort((arr < 0).to(torch.int64), stable=True)
+            arr_tmp = arr[idx1]
+            idx2 = torch.argsort(torch.abs(arr_tmp), stable=True)
+            return arr_tmp[idx2]
+        # BORRAR
+        print("In Graph2Mat _get_edgelabels_resort_index: ")
+        print("types: ", types)
+        print("types.type: ", types.dtype)
+        types = reorder_array(types)
+
+        # BORRAR
+        print("after reorder_array(types): ", types)
+        print("types.type: ", types.dtype)
 
         return self._get_labels_resort_index(
             types=types,
