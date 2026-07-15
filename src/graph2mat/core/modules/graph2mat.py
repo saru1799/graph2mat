@@ -473,8 +473,6 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
                         symm_transpose=(self.symmetric and neigh_type == point_type),
                         **kwargs,
                     )
-        # BORRAR
-        # print('interactions: \n', interactions)
         return {str(k): v for k, v in interactions.items()}
 
     def _get_preprocessing_nodes_summary(self) -> str:
@@ -825,6 +823,8 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
         print("In Graph2Mat _forward_interactions: ")
         print("graph2mat_edge_types: ", graph2mat_edge_types)
         print("edge_types: ", edge_types)
+        print("Order of interactions (edge type is last): ", list(self.interactions.keys()))
+        print('This is the order of indexes: then all the indexes of same type se cogen seguidos')
 
         # Call each unique interaction function with only the features
         # of edges that correspond to that type.
@@ -866,10 +866,6 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
                 i_edges = graph2mat_edge_types[mask] == edge_type
                 j_edges = ~i_edges
 
-                print("In Graph2Mat _forward_interactions: ")
-                print("i_edges: (graph2mat_edge_types[mask] == edge_type) ", i_edges)
-                print("j_edges: (~i_edges)", j_edges)
-
             # Create the tuples of edge features. Each tuple contains the two directions of the
             # edge. The first item contains the "forward" direction, the second the "reverse" direction.
             filtered_edge_kwargs = {
@@ -905,6 +901,11 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
 
         # Get the indices that will resort the edge outputs to produce
         # the target. (i.e. go back to the order the edges came in).
+
+        # BORRAR
+        print("In Graph2Mat _forward_interactions (before get_edgelabels_resort_index): ")
+        print("graph2mat_edge_types: ", graph2mat_edge_types)
+        print("edge_types (original_types): ", edge_types)
         sort_indices = self._get_edgelabels_resort_index(
             graph2mat_edge_types, original_types=edge_types
         )
@@ -977,33 +978,34 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
             types = types[::2]
             original_types = original_types[::2]
 
-        def reorder_array(arr):
-            # SN: Pol says this is the correct order...
-            # So here is a quick fix
-            """
-            Reorder a list of numbers:
-            - Primary key: absolute value (ascending)
-            - Secondary key: sign (positive/zero before negative)
-
-            Parameters:
-                arr (list): list of numbers (int/float)
-
-            Returns:
-                list: new list with the reordered elements
-            """
-            idx1 = torch.argsort((arr < 0).to(torch.int64), stable=True)
-            arr_tmp = arr[idx1]
-            idx2 = torch.argsort(torch.abs(arr_tmp), stable=True)
-            return arr_tmp[idx2]
         # BORRAR
-        print("In Graph2Mat _get_edgelabels_resort_index: ")
-        print("types: ", types)
-        print("types.type: ", types.dtype)
-        types = reorder_array(types)
+        # def reorder_array(arr):
+        #     # SN: Pol says this is the correct order...
+        #     # So here is a quick fix
+        #     """
+        #     Reorder a list of numbers:
+        #     - Primary key: absolute value (ascending)
+        #     - Secondary key: sign (positive/zero before negative)
 
-        # BORRAR
-        print("after reorder_array(types): ", types)
-        print("types.type: ", types.dtype)
+        #     Parameters:
+        #         arr (list): list of numbers (int/float)
+
+        #     Returns:
+        #         list: new list with the reordered elements
+        #     """
+        #     idx1 = torch.argsort((arr < 0).to(torch.int64), stable=True)
+        #     arr_tmp = arr[idx1]
+        #     idx2 = torch.argsort(torch.abs(arr_tmp), stable=True)
+        #     return arr_tmp[idx2]
+        # # BORRAR
+        # print("In Graph2Mat _get_edgelabels_resort_index: ")
+        # print("types: ", types)
+        # print("types.type: ", types.dtype)
+        # types = reorder_array(types)
+
+        # # BORRAR
+        # print("after reorder_array(types): ", types)
+        # print("types.type: ", types.dtype)
 
         return self._get_labels_resort_index(
             types=types,
@@ -1080,6 +1082,7 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
             )
             # BORRAR
             print('AFTER CALLING get_labels_resorting_array')
+            print("len(indices): ", len(indices))
             print("indices: ", indices)
 
         return indices
