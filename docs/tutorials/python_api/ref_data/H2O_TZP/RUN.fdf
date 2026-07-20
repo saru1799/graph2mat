@@ -1,0 +1,44 @@
+# Run 50 steps of a verlet MD
+MD.TypeOfRun verlet
+MD.Steps 50
+
+# Use the default Triple Zeta Polarized basis.
+PAO.BasisSize TZP
+
+# Save all matrices
+TS.HS.Save t
+TS.DE.Save t
+Write.HS.History T
+
+# Specify that we want to use our lua script
+Lua.Script md_store.lua
+
+# ForceAuxCell is not really needed here, but you will need it if you are
+# computing a periodic system only at the Gamma point.
+ForceAuxCell t
+
+# And then the information about the structure
+
+# The lattice is just a box big enough so that periodic images don't interact.
+LatticeConstant 1.0 Ang
+%block LatticeVectors
+10.00000000 0.00000000 0.00000000
+0.00000000 10.00000000 0.00000000
+0.00000000 0.00000000 10.00000000
+%endblock LatticeVectors
+
+# Two species, Oxygen and Hydrogen
+NumberOfSpecies 2
+%block ChemicalSpeciesLabel
+1 8 O
+2 1 H
+%endblock ChemicalSpeciesLabel
+
+# The coordinates of the water molecule
+NumberOfAtoms 3
+AtomicCoordinatesFormat Ang
+%block AtomicCoordinatesAndAtomicSpecies
+5.00000000  5.00000000  0.11926200 1 # 1: O
+5.00000000  5.76323900 -0.47704700 2 # 2: H
+5.00000000  4.33683900 -0.47704700 2 # 3: H
+%endblock AtomicCoordinatesAndAtomicSpecies

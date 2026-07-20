@@ -156,9 +156,9 @@ class BasisTableWithEdges_rowcol:
         )
 
         # BORRAR
-        print(f"Basis sizes: {self.basis_size}")
+        # print(f"Basis sizes: {self.basis_size}")
 
-        # SN: MOVED THIS TO Sara_ BUT I AM NOT SURE OF HOW IT WORKS
+        # SN: MOVED THIS TO BasisTableWithEdges BUT I AM NOT SURE OF HOW IT WORKS
         # point_types_combinations = np.array(
         #     list(itertools.combinations_with_replacement(range(n_types), 2))
         # ).T
@@ -410,8 +410,9 @@ class BasisTableWithEdges:
         self.is_square = all(b.matrix_role is None for b in basis)
 
         # BORRAR
-        print(f"BasisTableWithEdges: is_square = {self.is_square}")
-        print(f"BasisTableWithEdges: all matrix roles = {[b.matrix_role for b in basis]}")
+        # print(f"BasisTableWithEdges: is_square = {self.is_square}")
+        # print(f"BasisTableWithEdges: all matrix roles = {[b.matrix_role for b in basis]}")
+    
         row_basis, col_basis = self._process_basis_rows_cols(basis)
         self.row = (BasisTableWithEdges_rowcol(row_basis, get_point_matrix)
                     if len(row_basis) > 0 else None)
@@ -444,9 +445,10 @@ class BasisTableWithEdges:
             if not np.allclose(self.row.R, self.col.R):
                 print(f"Warning: Row and column point types have different cutoff radii. Taking the maximum of the two.")
             # BORRAR
-            print(f"Row cutoff radii: {self.row.R}")
-            print(f"Col cutoff radii: {self.col.R}")
-            print(f"Max cutoff radius: {np.max([self.row.R, self.col.R], axis=0)}")
+            # print(f"Row cutoff radii: {self.row.R}")
+            # print(f"Col cutoff radii: {self.col.R}")
+            # print(f"Max cutoff radius: {np.max([self.row.R, self.col.R], axis=0)}")
+
             self.R = np.max([self.row.R, self.col.R], axis=0)
 
         # Array to get the edge type from point types.
@@ -475,10 +477,11 @@ class BasisTableWithEdges:
         self.point_block_size = self.row.basis_size * self.col.basis_size
 
         # BORRAR
-        print("In BasisTableWithEdges: ")
-        print(f"self.edge_type == point_types_to_edge_types:\n{self.edge_type}")
-        print(f"self.point_block_shape:\n{self.point_block_shape}")
-        print(f"self.point_block_size:\n{self.point_block_size}")
+        # print("In BasisTableWithEdges: ")
+        # print(f"self.edge_type == point_types_to_edge_types:\n{self.edge_type}")
+        # print(f"self.point_block_shape:\n{self.point_block_shape}")
+        # print(f"self.point_block_size:\n{self.point_block_size}")
+
         point_types_combinations = np.array(
                 list(itertools.combinations_with_replacement(range(n_types), 2))).T
         # Even if its not sqare, we take each direction once : we define the inverse shape, where we pass from (Ar, Bc) to (Ac, Br)
@@ -492,24 +495,26 @@ class BasisTableWithEdges:
             self.edge_block_size_inv = self.edge_block_shape_inv.prod(axis=0)
 
             # BORRAR
-            print(f"Point type to edge type:\n{self.edge_type}")
-            print(f"Edge type to point types:\n{self.edge_type_to_point_types}")
-            print(f"Edge block shape:\n{self.edge_block_shape}")
-            print(f"Edge block size:\n{self.edge_block_size}")
+            # print(f"Point type to edge type:\n{self.edge_type}")
+            # print(f"Edge type to point types:\n{self.edge_type_to_point_types}")
+            # print(f"Edge block shape:\n{self.edge_block_shape}")
+            # print(f"Edge block size:\n{self.edge_block_size}")
+
         else:
             # Store the sizes of each point's basis — now separate for rows and cols.
             row_basis_size = self.row.basis_size
             col_basis_size = self.col.basis_size
 
-            print(f"Row basis sizes: {row_basis_size}")
-            print(f"Col basis sizes: {col_basis_size}")
+            # BORRAR
+            # print(f"Row basis sizes: {row_basis_size}")
+            # print(f"Col basis sizes: {col_basis_size}")
 
             self.edge_type_to_point_types = point_types_combinations.T
 
             # TODO: comprobe if this is okay for non-square matrices
             # BORRAR
-            print(f"Point type to edge type:\n{self.edge_type}")
-            print(f"Edge type to point types:\n{self.edge_type_to_point_types}")
+            # print(f"Point type to edge type:\n{self.edge_type}")
+            # print(f"Edge type to point types:\n{self.edge_type_to_point_types}")
 
             row_type_indices = point_types_combinations[0]   # which row-type each combo refers to
             col_type_indices = point_types_combinations[1]   # which col-type each combo refers to
@@ -525,8 +530,9 @@ class BasisTableWithEdges:
             ])                                          # shape: (2, n_combos)
 
             # BORRAR
-            print(f"Edge block shape:\n{self.edge_block_shape}")
-            print(f"Edge block shape inv:\n{self.edge_block_shape_inv}")
+            # print(f"Edge block shape:\n{self.edge_block_shape}")
+            # print(f"Edge block shape inv:\n{self.edge_block_shape_inv}")
+
             self.edge_block_size = self.edge_block_shape.prod(axis=0)  # shape: (n_combos,)
             self.edge_block_size_inv = self.edge_block_shape_inv.prod(axis=0)  # shape: (n_combos,)
 
@@ -725,10 +731,11 @@ with grouping {grouping} is not implemented yet.")
         pointers = np.zeros(len(point_types) + 1, dtype=np.int32)
         np.cumsum(self.point_block_size[point_types], out=pointers[1:])
         # BORRAR
-        print(f"In BasisTableWithEdges.point_block_pointer:")
-        print(f"  point_types = {point_types}")
-        print(f"  point_block_size = {self.point_block_size}")
-        print(f"  pointers = {pointers}")
+        # print(f"In BasisTableWithEdges.point_block_pointer:")
+        # print(f"  point_types = {point_types}")
+        # print(f"  point_block_size = {self.point_block_size}")
+        # print(f"  pointers = {pointers}")
+
         return pointers
 
     # SN: moved from the old BasisTableWithEdges_rowcol class to here
@@ -762,10 +769,11 @@ with grouping {grouping} is not implemented yet.")
             np.cumsum(sizes, out=pointers[1:])
 
         # BORRAR
-        print(f"In BasisTableWithEdges.edge_block_pointer:")
-        print(f"  edge_types = {edge_types}")
-        print(f"  edge_block_size = {self.edge_block_size}")
-        print(f"  pointers = {pointers}")
+        # print(f"In BasisTableWithEdges.edge_block_pointer:")
+        # print(f"  edge_types = {edge_types}")
+        # print(f"  edge_block_size = {self.edge_block_size}")
+        # print(f"  pointers = {pointers}")
+
         return pointers
     
     # SN: the max R must be the max among rows and cols

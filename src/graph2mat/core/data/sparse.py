@@ -209,10 +209,10 @@ def _blockmatrix_coo_coords(
     cols = []
 
     # BORRAR
-    print(f"In sparse.py _blockmatrix_coo_coords:")
-    print(f"orbitals_row: {orbitals_row}")
-    print(f"orbitals_col: {orbitals_col}")
-    print(f"edge_index: {edge_index}")
+    # print(f"In sparse.py _blockmatrix_coo_coords:")
+    # print(f"orbitals_row: {orbitals_row}")
+    # print(f"orbitals_col: {orbitals_col}")
+    # print(f"edge_index: {edge_index}")
 
     is_square = np.array_equal(orbitals_row, orbitals_col)
 
@@ -297,8 +297,8 @@ def _blockmatrix_coo_coords(
     cols.extend(cols_symm)
 
     # BORRAR
-    print(f"Len rows in _blockmatrix_coo_coords: {len(rows)}")
-    print(f"Len cols in _blockmatrix_coo_coords: {len(cols)}")
+    # print(f"Len rows in _blockmatrix_coo_coords: {len(rows)}")
+    # print(f"Len cols in _blockmatrix_coo_coords: {len(cols)}")
 
     return np.array(rows), np.array(cols), (no_row, no_col * n_supercells)
 
@@ -363,14 +363,14 @@ def _nodes_and_edges_to_coo(
     """
 
     # BORRAR
-    print(f"In sparse.py _nodes_and_edges_to_coo:")
-    print(f"calling _blockmatrix_coo_coords with:")
-    print(f"orbitals_row: {orbitals_row}")
-    print(f"orbitals_col: {orbitals_col}")
-    print(f"edge_index: {edge_index}")
-    print(f"n_supercells: {n_supercells}")
-    print(f"edge_neigh_isc: {edge_neigh_isc}")
-    print(f"symmetrize_edges: {symmetrize_edges}")
+    # print(f"In sparse.py _nodes_and_edges_to_coo:")
+    # print(f"calling _blockmatrix_coo_coords with:")
+    # print(f"orbitals_row: {orbitals_row}")
+    # print(f"orbitals_col: {orbitals_col}")
+    # print(f"edge_index: {edge_index}")
+    # print(f"n_supercells: {n_supercells}")
+    # print(f"edge_neigh_isc: {edge_neigh_isc}")
+    # print(f"symmetrize_edges: {symmetrize_edges}")
 
     rows, cols, shape = _blockmatrix_coo_coords(
         orbitals_row=orbitals_row,
@@ -381,17 +381,19 @@ def _nodes_and_edges_to_coo(
         symmetrize_edges=symmetrize_edges,
     )
     # BORRAR
-    print(f"Len rows in _nodes_and_edges_to_coo: {len(rows)}")
-    print(f"Len cols in _nodes_and_edges_to_coo: {len(cols)}")
-    print(f"Shape in _nodes_and_edges_to_coo: {shape}")
-    print(f"Len node_vals in _nodes_and_edges_to_coo: {len(node_vals)}")
-    print(f"Len edge_vals in _nodes_and_edges_to_coo: {len(edge_vals)}")
+    # print(f"Len rows in _nodes_and_edges_to_coo: {len(rows)}")
+    # print(f"Len cols in _nodes_and_edges_to_coo: {len(cols)}")
+    # print(f"Shape in _nodes_and_edges_to_coo: {shape}")
+    # print(f"Len node_vals in _nodes_and_edges_to_coo: {len(node_vals)}")
+    # print(f"Len edge_vals in _nodes_and_edges_to_coo: {len(edge_vals)}")
+
     if symmetrize_edges:
         sparse_data = concatenate([node_vals, edge_vals, edge_vals])
     else:
         sparse_data = concatenate([node_vals, edge_vals])
     # BORRAR
-    print(f"Len sparse_data in _nodes_and_edges_to_coo: {len(sparse_data)}")
+    # print(f"Len sparse_data in _nodes_and_edges_to_coo: {len(sparse_data)}")
+
     if threshold is not None:
         mask = abs(sparse_data) > threshold
     else:

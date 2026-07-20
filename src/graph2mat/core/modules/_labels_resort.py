@@ -96,39 +96,30 @@ def get_labels_resorting_array(
     prev_type: cython.int = ntypes_int - 1  # Start from the position that corresponds to type 0
     for type in range(1, ntypes_int):  # Here we just range in n_types, but this takes the negatives
         # BORRAR
-        print(f"Type {type}: offset[prev_type] = {offset[prev_type]}, type_nlabels[prev_type] = {type_nlabels[prev_type]}")
+        # print(f"Type {type}: offset[prev_type] = {offset[prev_type]}, type_nlabels[prev_type] = {type_nlabels[prev_type]}")
+
         offset[type + ntypes_int - 1] = offset[prev_type] + type_nlabels[prev_type]  # >0
         # BORRAR
-        print(f"Type {-1*type}: offset[-type] = {offset[type]}, type_nlabels[type] = {type_nlabels[type]}")
+        # print(f"Type {-1*type}: offset[-type] = {offset[type]}, type_nlabels[type] = {type_nlabels[type]}")
         offset[-type + ntypes_int - 1] = offset[type + ntypes_int - 1] + type_nlabels[type + ntypes_int - 1]  # < 0
 
         # BORRAR
-        print(f"calculated offset[{type}] = {offset[type]}, offset[{-type}] = {offset[-type]}")
+        # print(f"calculated offset[{type}] = {offset[type]}, offset[{-type}] = {offset[-type]}")
         prev_type = -type + ntypes_int - 1  # we have to continue from the negative type, because the next positive type will be after it.
 
     # Initialize the indices array.
     # (for each label value, index of the unsorted array where it is located)
     # The +1 is to avoid that ntypes_int=n means that we have n-1 integers types, avoiding 0.
-    # indices: cython.long[:] = np.empty(
-    #     offset[-ntypes_int+1] + type_nlabels[-ntypes_int+1], dtype=int
-    # )
-
-    # BORRAR - DEBUG
-    size_indices: cython.long = offset[0] + type_nlabels[0]
-    print("ntypes_int: ", ntypes_int)
-    print("-ntypes_int+1: ", -ntypes_int+1)
-    print("-ntypes_int+1+ntypes_int-1: ", -ntypes_int+1+ntypes_int-1)
-    print("size_indices: ", size_indices)
-    print("offset[0]: = offset[", 0, "] = ", offset[0])
-    print("type_nlabels[0]: = type_nlabels[", 0, "] = ", type_nlabels[0])
-    indices = np.full(offset[0] + type_nlabels[0], -999, dtype=np.int64)
+    indices: cython.long[:] = np.empty(
+        offset[0] + type_nlabels[0], dtype=int
+    )
 
     # BORRAR
-    print("In get_labels_resorting_array:")
-    print("sizes: ", np.asarray(sizes))
-    print("type_nlabels: ", np.asarray(type_nlabels))
-    print("offset: ", np.asarray(offset))
-    print("indices.shape: ", indices.shape)
+    # print("In get_labels_resorting_array:")
+    # print("sizes: ", np.asarray(sizes))
+    # print("type_nlabels: ", np.asarray(type_nlabels))
+    # print("offset: ", np.asarray(offset))
+    # print("indices.shape: ", indices.shape)
 
     type_i: cython.long[:] = np.zeros_like(sizes, dtype=int)
     i: cython.int = 0

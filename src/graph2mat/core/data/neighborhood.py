@@ -30,7 +30,7 @@ def get_neighborhood(
     assert cell.shape == (3, 3)
 
     # BORRAR
-    print('Cutoff:', cutoff)
+    # print('Cutoff:', cutoff)
 
     sender, receiver, unit_shifts = ase.neighborlist.primitive_neighbor_list(
         quantities="ijS",
