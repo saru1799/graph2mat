@@ -541,9 +541,6 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
                 s += f" {self._get_node_operation_summary(x)}"
 
             s += "\nEdge operations:"
-
-            # # BORRAR
-            # print(f"self.interactions: {self.interactions}")
             
             for k, x in self.interactions.items():
                 if x.symm_transpose and not self.is_square:
@@ -571,27 +568,6 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
                     s += " [XY = YX.T]"
 
                 s += f" {self._get_edge_operation_summary(x)}."
-
-                # # BORRAR
-                # print(s)
-                
-                # point = self.graph2mat_table_row.basis[point_type]
-                # neigh = self.graph2mat_table_col.basis[neigh_type]
-
-                # if x is None:
-                #     print(" x is None ")
-                #     print(f" ({point.type}, {neigh.type}) No basis functions.")
-                #     continue
-                # print(" ({point.type}, {neigh.type})")
-                # print(f"({point.type}r, {neigh.type})")
-
-                # if x.symm_transpose:
-                #     print(" x.symm_transpose is True ")
-                #     print(" [XY = YX.T]")
-                # print(" self._get_edge_operation_summary(x) , being x ", x)
-                # print(f" {self._get_edge_operation_summary(x)}.")
-                # # END BORRAR
-                # raise NotImplementedError("Printing edge operations for non-square matrices are not implemented yet.")
             return s
         except Exception as e:
             return f"Error generating summary: {e}"
@@ -902,25 +878,9 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
         # Get the indices that will resort the edge outputs to produce
         # the target. (i.e. go back to the order the edges came in).
 
-        # BORRAR
-        # print("In Graph2Mat _forward_interactions (before get_edgelabels_resort_index): ")
-        # print("graph2mat_edge_types: ", graph2mat_edge_types)
-        # print("edge_types (original_types): ", edge_types)
-
         sort_indices = self._get_edgelabels_resort_index(
             graph2mat_edge_types, original_types=edge_types
         )
-
-        # BORRAR
-        # print("In Graph2Mat _forward_interactions (after get_edgelabels_resort_index): ")
-        # print("graph2mat_edge_types: ", graph2mat_edge_types)
-        # print("edge_types (original_types): ", edge_types)
-        # print("unsorted_edge_labels: ", unsorted_edge_labels)
-        # print("sort_indices: ", sort_indices)
-        # print("unsorted_edge_labels[sort_indices]: ", unsorted_edge_labels[sort_indices])
-        # print("unsorted_edge_labels.shape: ", unsorted_edge_labels.shape)
-        # print("new shape: ", unsorted_edge_labels[sort_indices].shape)
-
         # Do the resorting and return the result.
         return unsorted_edge_labels[sort_indices]
 

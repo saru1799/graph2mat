@@ -198,10 +198,6 @@ class MatrixDataProcessor:
 
         if is_batch is None:
             is_batch = isinstance(data, Batch)
-        # BORRAR
-        # print("In processing.py matrix_from_data:")
-        # print("data:", data)
-        # print("is_batch:", is_batch)
         if is_batch:
             return tuple(
                 self.yield_from_batch(
@@ -1404,11 +1400,6 @@ class BasisMatrixDataBase(Generic[ArrayType]):
         # array that converts from sc shifts (3D) to a single supercell index. This is isc_off.
         supercell = sisl.Lattice(config.cell, nsc=nsc)
 
-        # BORRAR
-        # print('IN BasisMatrixData.from_config:')
-        # print('all indices:', indices)
-        # print('edge_index:', edge_index)
-        # Get the edge types
         edge_types = data_processor.basis_table.point_type_to_edge_type(
             indices[edge_index]
         )
