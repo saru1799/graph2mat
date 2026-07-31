@@ -192,7 +192,6 @@ def _blockmatrix_coo_coords(
         shape (2, n_edges), for each edge the indices of the atoms
         that participate. If `symmetrize_edges` is `True`, this must
         ONLY contain the edges in one of the directions.
-        # TODO: verify this work with non sym in the non-square case.
     n_supercells:
         number of supercells in the matrix.
     edge_neigh_isc:
@@ -210,10 +209,10 @@ def _blockmatrix_coo_coords(
     is_square = np.array_equal(orbitals_row, orbitals_col)
 
     # BORRAR
-    # print(f"In sparse.py _blockmatrix_coo_coords:")
-    # print(f"orbitals_row: {orbitals_row}")
-    # print(f"orbitals_col: {orbitals_col}")
-    # print(f"edge_index: {edge_index}")
+    print(f"In sparse.py _blockmatrix_coo_coords:")
+    print(f"orbitals_row: {orbitals_row}")
+    print(f"orbitals_col: {orbitals_col}")
+    print(f"edge_index: {edge_index}")
 
     is_square = np.array_equal(orbitals_row, orbitals_col)
 
@@ -367,11 +366,11 @@ def _nodes_and_edges_to_coo(
         symmetrize_edges=symmetrize_edges,
     )
     # BORRAR
-    # print(f"Len rows in _nodes_and_edges_to_coo: {len(rows)}")
-    # print(f"Len cols in _nodes_and_edges_to_coo: {len(cols)}")
-    # print(f"Shape in _nodes_and_edges_to_coo: {shape}")
-    # print(f"Len node_vals in _nodes_and_edges_to_coo: {len(node_vals)}")
-    # print(f"Len edge_vals in _nodes_and_edges_to_coo: {len(edge_vals)}")
+    print(f"Len rows in _nodes_and_edges_to_coo: {len(rows)}")
+    print(f"Len cols in _nodes_and_edges_to_coo: {len(cols)}")
+    print(f"Shape in _nodes_and_edges_to_coo: {shape}")
+    print(f"Len node_vals in _nodes_and_edges_to_coo: {len(node_vals)}")
+    print(f"Len edge_vals in _nodes_and_edges_to_coo: {len(edge_vals)}")
 
     if symmetrize_edges:
         sparse_data = concatenate([node_vals, edge_vals, edge_vals])

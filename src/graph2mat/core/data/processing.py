@@ -677,15 +677,8 @@ class MatrixDataProcessor:
         """
 
         if isinstance(self.basis_table.R, float):
-            # BORRAR
-            # print('self.basis_table.R is a float:', self.basis_table.R)
-
             return self.basis_table.R * 2
         else:
-            # BORRAR
-            # print('self.basis_table.R is an array:', self.basis_table.R)
-            # print('point_types:', point_types)
-            # print('self.basis_table.R[point_types]:', self.basis_table.R[point_types])
             return self.basis_table.R[point_types]
 
     def get_nlabels_per_edge_type(self, edge_types: np.ndarray) -> np.ndarray:
@@ -837,9 +830,8 @@ class MatrixDataProcessor:
         else:
             kwargs["n_supercells"] = nsc.prod()
 
-            # SN: changed this -- the n_orbitals can be diff in cols and rows if its non square
-            n_orbitals_row = [point.basis_size for point in self.basis_table.row.basis]
-            n_orbitals_col = [point.basis_size for point in self.basis_table.col.basis]
+            n_orbitals_row = [point.basis_size for point in self.basis_table.row_basis]
+            n_orbitals_col = [point.basis_size for point in self.basis_table.col_basis]
             kwargs["orbitals_row"] = [n_orbitals_row[at_type] for at_type in point_types]
             kwargs["orbitals_col"] = [n_orbitals_col[at_type] for at_type in point_types]
 
@@ -858,16 +850,6 @@ class MatrixDataProcessor:
             edge_index = edge_index[:, ::2]
             edge_types = edge_types[::2]
             neigh_isc = neigh_isc[::2]
-        # BORRAR
-        # print("In labels_to: of MatrixDataProcessor")
-        # print("data_format:", data_format)
-        # print("out_format:", out_format)
-        # print("len node_labels:", len(node_labels))
-        # print("len edge_labels:", len(edge_labels))
-        # print("edge_index:", edge_index)
-        # print("neigh_isc:", neigh_isc)
-        # print("self.symmetric_matrix:", self.symmetric_matrix)
-        # print("calling conversions.get_converter with data_format:", data_format, "and out_format:", out_format)
 
         # Construct the matrix.
         matrix = conversions.get_converter(data_format, out_format)(

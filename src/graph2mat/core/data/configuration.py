@@ -120,9 +120,14 @@ class BasisConfiguration:
     _cls_format: str = Formats.BASISCONFIGURATION
 
     def __post_init__(self):
+        # SN: Warning! This only works properly with square matrices.
         if isinstance(self.basis, BasisTableWithEdges):
             # If the basis is a table, we need to convert it to a list of PointBasis objects
-            object.__setattr__(self, "basis", self.basis.basis)
+            object.__setattr__(self, "basis", self.basis.row_basis)
+        elif isinstance(self.basis, dict):
+            # If the basis is a dict, we need to convert it to a list of PointBasis objects
+            # Again, only take rows
+            object.__setattr__(self, "basis", self.basis["row"])
 
         if self.matrix is not None and not isinstance(self.matrix, BasisMatrix):
             matrix = self.matrix
@@ -399,6 +404,8 @@ def _orbitalconfiguration_to_basisconfiguration(
 
 @converter
 def _configuration_to_geometry(config: BasisConfiguration) -> sisl.Geometry:
+    # BORRAR
+    print(config.basis)
     atoms = {pb.type: pb.to_sisl_atom(Z=i + 1) for i, pb in enumerate(config.basis)}
 
     return sisl.Geometry(
