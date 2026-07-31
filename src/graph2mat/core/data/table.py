@@ -24,7 +24,7 @@ import sisl
 from .basis import BasisConvention, PointBasis, get_change_of_basis
 
 
-class BasisTableWithEdges_rowcol:
+class BasisTableWithEdges:
     """Stores the unique types of points in the system, with their basis and the possible edges.
 
     It also knows the size of the blocks, and other type dependent variables.
@@ -32,11 +32,16 @@ class BasisTableWithEdges_rowcol:
     Its function is to assist in pre and post processing data by providing a centralized
     source of truth for the basis that a model should be able to deal with.
 
+    It allows non-square matrices, in which case the row and column basis are different. In that case,
+    the basis should be passed as a dict with keys "row" and "col" and the corresponding basis for each,
+    passed as a list of `PointBasis` objects with matching types. The order of the types in the row and
+    column basis should be the same (although it handles reordering), and the types should be unique. 
+
     Parameters
     ----------
     basis:
         List of `PointBasis` objects for types that are (possibly) present in the systems
-        of interest.
+        of interest. If dict, it should have keys "row" and "col" with the corresponding basis for each.
     get_point_matrix:
         A function that takes a `PointBasis` object and returns the matrix that is a
         constant for that type of point.
@@ -53,7 +58,8 @@ class BasisTableWithEdges_rowcol:
     """
 
     #: List of ``PointBasis`` objects that this table knows about.
-    basis: List[PointBasis]
+    row_basis: List[PointBasis]
+    col_basis: List[PointBasis]
     #: The spherical harmonics convention used for the basis
     #: (same for all ``PointBasis``).
     basis_convention: BasisConvention
@@ -105,56 +111,10 @@ class BasisTableWithEdges_rowcol:
     #: If the basis was read from files, this might store the contents of the files.
     #: For saving/loading purposes.
     file_contents: Optional[List[str]]
-
-    def __init__(
-        self, basis: Sequence[PointBasis], get_point_matrix: Optional[Callable] = None
-    ):
-        self._init_args = {"atoms": basis, "get_point_matrix": get_point_matrix}
-        self.basis = list(basis)
-
-
-
-        # Get the point matrix for each type. This is the matrix that a point would
-        # have if it was the only one in the system, and it depends only on the type.
-        # TODO: pass this to the non-square(to Sara_)
-        
-
-        # Get also the cutoff radii for each point.
-        self.R = np.array([point_basis.maxR() for point_basis in self.basis])
-
-        
-
-    def __repr__(self):
-        return f"{self.__class__.__name__}({self.basis_convention}, basis={self.basis})"
-
-
-    def index_to_type(self, index: int) -> Union[str, int]:
-        """Converts from the index of the point type to the type ID.
-
-        Parameters
-        ----------
-        index:
-            The index of the point type in the table for which the ID is desired.
-        """
-        return self.types[index]
-
-    
-
-    def get_sisl_atoms(self) -> List[sisl.Atom]:
-        """Returns a list of sisl atoms corresponding to the basis.
-
-        If the basis does not contain atoms, `PointBasis` objects are
-        converted to atoms.
-        """
-        if hasattr(self, "atoms"):
-            return self.atoms
-        else:
-            return [point.to_sisl_atom() for point in self.basis]
-
-
-class BasisTableWithEdges:
-    """Storing point information accounting for different row and column point types."""
     def __init__(self, basis: Sequence[PointBasis], get_point_matrix: Optional[Callable] = None):
+        self._init_args = {"atoms": basis, "get_point_matrix": get_point_matrix}
+
+        # Non-square matrices are allowed, but only if the basis is passed as a dict with keys "row" and "col".
         self.is_square = not isinstance(basis, dict)
 
         # Define row and col basis
@@ -582,7 +542,39 @@ class BasisTableWithEdges:
                 table += f"<tr><td>{self.row_basis[i]}</td><td>{self.col_basis[i]}</td></tr>"
             table += "</tbody></table>"
             return table
+
+    def __repr__(self):
+        if self.is_square:
+            return f"{self.__class__.__name__}({self.basis_convention}, basis={self.row_basis})"
+        else:
+            return f"{self.__class__.__name__}({self.basis_convention}, row_basis={self.row_basis}, col_basis={self.col_basis})"
+
+
+    def index_to_type(self, index: int) -> Union[str, int]:
+        """Converts from the index of the point type to the type ID.
+
+        Parameters
+        ----------
+        index:
+            The index of the point type in the table for which the ID is desired.
+        """
+        return self.types[index]
+
     
+
+    def get_sisl_atoms(self) -> List[sisl.Atom]:
+        """Returns a list of sisl atoms corresponding to the basis.
+
+        If the basis does not contain atoms, `PointBasis` objects are
+        converted to atoms.
+
+        WARNING: to sislfunctions only working well for SQUARE matrices. 
+        """
+        if hasattr(self, "atoms"):
+            return self.atoms
+        else:
+            return [point.to_sisl_atom() for point in self.row_basis]
+
     
 
     def __str__(self):
@@ -629,9 +621,7 @@ class BasisTableWithEdges:
         same &= np.allclose(self.edge_block_shape, other.edge_block_shape)
         same &= np.allclose(self.edge_block_size, other.edge_block_size)
         return same
-    
-    
-    # SN: moved from the old BasisTableWithEdges_rowcol class to here
+
     def type_to_index(self, point_type: Union[str, int]) -> int:
         """Converts from the type ID to the index of the point type in the table.
 
@@ -642,7 +632,6 @@ class BasisTableWithEdges:
         """
         return self.types.index(point_type)
 
-    # SN: moved from the old BasisTableWithEdges_rowcol class to here
     def types_to_indices(self, types: Sequence) -> np.ndarray:
         """Converts from an array of types IDs to their indices in the basis table.
 
@@ -666,7 +655,6 @@ class BasisTableWithEdges:
         # And reconstruct the original array, which is now an array of indices instead of types
         return unique_indices[inverse_indices]
 
-    # SN: moved from the old BasisTableWithEdges_rowcol class to here
     def point_type_to_edge_type(self, point_type: np.ndarray) -> Union[int, np.ndarray]:
         """Converts pairs of point types to edge types.
 
@@ -678,7 +666,6 @@ class BasisTableWithEdges:
         """
         return self.edge_type[point_type[0], point_type[1]]
 
-    # SN: moved from the old BasisTableWithEdges_rowcol class to here
     def point_block_pointer(self, point_types: Sequence[int]) -> np.ndarray:
         """Pointers to the beggining of node blocks in a flattened matrix.
 
@@ -698,7 +685,6 @@ class BasisTableWithEdges:
         np.cumsum(self.point_block_size[point_types], out=pointers[1:])
         return pointers
 
-    # SN: moved from the old BasisTableWithEdges_rowcol class to here
     def edge_block_pointer(self, edge_types: Sequence[int]):
         """Pointers to the beggining of edge blocks in a flattened matrix.
 
@@ -913,7 +899,7 @@ class IdentityConversion:
 # SN: I just copied how to do it for a single basis, so that the changes are minimal,
 # and I do not mess up the grouping
 def group(self, grouping: Literal["basis_shape", "point_type", "max"]) \
-                    -> tuple["BasisTableWithEdges_rowcol",
+                    -> tuple["BasisTableWithEdges",
                     np.ndarray, np.ndarray, Optional[np.ndarray]]:
     filters = None
     if grouping == "point_type":
