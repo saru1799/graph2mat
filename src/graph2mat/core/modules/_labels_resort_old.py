@@ -2,16 +2,9 @@ import numpy as np
 
 import cython
 
-# BORRAR
-# def get_labels_resorting_array(
-#     types: cython.integral[:],
-#     # unique_types: cython.integral[:],
-#     # unique_positive_types: cython.integral[:],
-#     shapes: cython.integral[:, :],
-#     transpose_neg: cython.bint = False,
-# ):
+
 @cython.boundscheck(False)
-@cython.wraparound(False)
+# @cython.wraparound(False)
 def get_labels_resorting_array(
     types: cython.integral[:],
     shapes: cython.integral[:, :],
@@ -62,12 +55,8 @@ def get_labels_resorting_array(
     one direction is predicted.
     """
     n_entries = types.shape[0]
-    if any(type < 0 for type in types):  # case of edges
-        n_types: cython.int = shapes.shape[1]  # number of types, including negative ones
-        ntypes_int: cython.int = n_types // 2 + 1  # number of types >=0
-    else:  # case of nodes
-        ntypes_int: cython.int = shapes.shape[1]  # number of types, excluding negative ones
-        n_types: cython.int = ntypes_int*2 - 1  # number of types, including negative ones
+    n_types: cython.int = shapes.shape[1] # positive and negative : with shape_inv
+    ntypes_int: cython.int = shapes.shape[1]//2 + 1 # this is the number of integers >=0 we have.
 
 
     # BORRAR
@@ -81,16 +70,15 @@ def get_labels_resorting_array(
     jrow: cython.int
     jcol: cython.int
 
-    # Always fill positive and negative types, even if they are not present in the unique types, due to the logic used by the function
-    type_nlabels: cython.long[:] = np.zeros(n_types, dtype=int)  
+    type_nlabels: cython.long[:] = np.zeros(n_types, dtype=int)
     offset: cython.long[:] = np.zeros(n_types, dtype=int)
 
 
     # Compute the sizes for each type
     sizes: cython.int[:] = np.zeros(n_types, dtype=np.int32)
 
-    sizes[ntypes_int-1] = shapes[0, 0] * shapes[1, 0]  # type 0
-    for type in range(1, ntypes_int):  # skip type 0, already done
+    sizes[ntypes_int - 1] = shapes[0, 0] * shapes[1, 0]  # type 0
+    for type in range(1, ntypes_int):
         # BORRAR
         print(f"Calculating sizes for type {type}: shapes[0, type] = {shapes[0, type]}, shapes[1, type] = {shapes[1, type]}")
         print(f"sizes[{type + ntypes_int - 1}] = {shapes[0, type]} * {shapes[1, type]} = {shapes[0, type] * shapes[1, type]}")
@@ -99,7 +87,6 @@ def get_labels_resorting_array(
         print(f"sizes[{-type + ntypes_int - 1}] = {shapes[0, n_types - type]} * {shapes[1, n_types - type]} = {shapes[0, n_types - type] * shapes[1, n_types - type]}")
 
         sizes[type + ntypes_int - 1] = shapes[0, type] * shapes[1, type]
-
         # The ones for th enegative types are stored in the second half of the sizes array,
         # As we cannot have negative indexes: shape[-type] = shape[ntypes - type]
         # so we access them with ntypes_int - type
@@ -110,6 +97,7 @@ def get_labels_resorting_array(
         type: cython.int = types[i_edge]
         type_nlabels[type + ntypes_int - 1] += sizes[type + ntypes_int - 1]
         # BORRAR
+        print(f"After processing edge {i_edge} of type {type}: type_nlabels: {type_nlabels}")
         print(f"Counting labels for type {type}: sizes[{type + ntypes_int - 1}] = {sizes[type + ntypes_int - 1]}")
         print(f"type_nlabels[{type + ntypes_int - 1}] = {type_nlabels[type + ntypes_int - 1]}")
 
@@ -122,18 +110,19 @@ def get_labels_resorting_array(
 
         # BORRAR
         print(f"Type {type}: offset[prev_type] = {offset[prev_type]}, type_nlabels[prev_type] = {type_nlabels[prev_type]}")
-        print(f"Type {-1*type}: offset[-type] = {offset[type + ntypes_int - 1]}, type_nlabels[type] = {type_nlabels[type + ntypes_int - 1]}")
+        print(f"Type {-1*type}: offset[-type] = {offset[type]}, type_nlabels[type] = {type_nlabels[type]}")
 
         offset[-type + ntypes_int - 1] = offset[type + ntypes_int - 1] + type_nlabels[type + ntypes_int - 1]  # < 0
 
         # BORRAR
-        print(f"calculated offset[{type}] = {offset[type + ntypes_int - 1]}, offset[{-type}] = {offset[-type + ntypes_int - 1]}")
+        print(f"calculated offset[{type}] = {offset[type]}, offset[{-type}] = {offset[-type]}")
 
          # We have to continue from the negative type, because the next positive type will be after it.
         prev_type = -type + ntypes_int - 1 
 
     # Initialize the indices array.
     # (for each label value, index of the unsorted array where it is located)
+    # The +1 is to avoid that ntypes_int=n means that we have n-1 integers types, avoiding 0.
     indices: cython.long[:] = np.empty(
         offset[0] + type_nlabels[0], dtype=int
     )

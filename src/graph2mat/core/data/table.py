@@ -111,7 +111,10 @@ class BasisTableWithEdges:
     #: If the basis was read from files, this might store the contents of the files.
     #: For saving/loading purposes.
     file_contents: Optional[List[str]]
-    def __init__(self, basis: Sequence[PointBasis], get_point_matrix: Optional[Callable] = None):
+    def __init__(
+            self, basis: Sequence[PointBasis] | dict[Literal["row", "col"], Sequence[PointBasis]],
+            get_point_matrix: Optional[Callable] = None
+        ):
         self._init_args = {"atoms": basis, "get_point_matrix": get_point_matrix}
 
         # Non-square matrices are allowed, but only if the basis is passed as a dict with keys "row" and "col".
@@ -183,9 +186,6 @@ class BasisTableWithEdges:
                 point_types_to_edge_types[j, i] = -edge_type
                 edge_type += 1
 
-            # For non square matrices, we don't have a symmetric lower triangular part,
-            # but the change in sign will still be used to indicate the direction of the edge. 
-
         self.edge_type = point_types_to_edge_types
 
         # Store the sizes of each point's basis.
@@ -205,14 +205,6 @@ class BasisTableWithEdges:
         point_types_combinations = np.array(
                 list(itertools.combinations_with_replacement(range(n_types), 2))).T
 
-        # BORRAR - esto debería de funcionar también porque rows==cols.
-        # if self.is_square:
-        #     self.edge_type_to_point_types = point_types_combinations.T
-        #     self.edge_block_shape = row_basis_size[point_types_combinations]
-        #     self.edge_block_shape_inv = row_basis_size[point_types_combinations]
-        #     self.edge_block_size = self.edge_block_shape.prod(axis=0)
-        #     self.edge_block_size_inv = self.edge_block_shape_inv.prod(axis=0)
-    
         # Store the sizes of each point's basis
         # Even if its not square, we take each direction once:
         # we define the inverse shape, where we pass from (Ar, Bc) to (Ac, Br)
@@ -223,20 +215,29 @@ class BasisTableWithEdges:
         col_type_indices = point_types_combinations[1]   # which col-type each combo refers to
 
         # Block shape: (row_basis_size[i], col_basis_size[j]) for each edge type (i, j).
-        self.edge_block_shape = np.array([
+        edge_block_shape = np.array([
             row_basis_size[row_type_indices],
             col_basis_size[col_type_indices],
         ])                                          # shape: (2, n_combos)
 
         # Define the inverse block shape: (row_basis_size[j], col_basis_size[i]) for each edge type (i, j).
         # This is befause for non-square, (Ac, Br) != (Bc, Ar) in general.
-        self.edge_block_shape_inv = np.array([
+        edge_block_shape_inv = np.array([
             row_basis_size[col_type_indices],
             col_basis_size[row_type_indices],
         ])                                          # shape: (2, n_combos)
+        # We add this at the end on edge_block shape, so that edge_block_shape_inv[i] = edge_block_shape[-i]
+        # then, we can access the negative edge types with that index.
+        edge_block_shape_inv_inverted = np.flip(edge_block_shape_inv[:, 1:], axis=1) 
+        self.edge_block_shape = np.concatenate([edge_block_shape, edge_block_shape_inv_inverted], axis=1)
+
+        # BORRAR
+        print("In BasisTableWithEdges __init__:")
+        print("edge_block_shape: ", edge_block_shape)
+        print("edge_block_shape_inv: ", edge_block_shape_inv)
+        print("concatenated edge_block_shape: ", self.edge_block_shape)
 
         self.edge_block_size = self.edge_block_shape.prod(axis=0)  # shape: (n_combos,)
-        self.edge_block_size_inv = self.edge_block_shape_inv.prod(axis=0)  # shape: (n_combos,)
 
     @staticmethod
     def _process_basis_rows_cols(basis: Union[List[PointBasis], dict[str, List[PointBasis]]]) \
@@ -275,7 +276,6 @@ class BasisTableWithEdges:
         # Quick check if already correctly ordered
         if all(a.type == b.type for a, b in zip(i_basis, j_basis)):
             return i_basis, j_basis
-        print("Reordering basis to match rows and columns.")
 
         type_to_index = {}
         for idx, elem in enumerate(j_basis):
@@ -706,12 +706,10 @@ class BasisTableWithEdges:
             np.cumsum(self.edge_block_size[np.abs(edge_types)], out=pointers[1:])
         else:
             # In non-square case, the edge block size is not symmetric, so for 
-            # negative values of
+            # negative values of edge types, we take them from the end of the array,
+            # as edge_block_size has been defined as the concatenation of the forward and backward sizes.
             # New conditional selection:
-            sizes = np.where(edge_types > 0,
-                            self.edge_block_size[edge_types],          # positive → forward size
-                            self.edge_block_size_inv[-edge_types])     # non‑positive → backward size (use absolute index)
-
+            sizes = self.edge_block_size[edge_types]
             np.cumsum(sizes, out=pointers[1:])
         return pointers
 

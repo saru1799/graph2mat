@@ -907,8 +907,7 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
         return self._get_labels_resort_index(
             types=types,
             original_types=original_types,
-            shapes=self.basis_table.point_block_shape,  # SN: changed: the full info is in basis_table, graph2mat table has row and col.
-            shapes_inv=self.basis_table.point_block_shape,
+            shapes=self.basis_table.point_block_shape,
             filters=self.node_filters,
             # original_sizes=self.basis_table.point_block_size,
             transpose_neg=False,
@@ -953,7 +952,6 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
             types=types,
             original_types=original_types,
             shapes=self.basis_table.edge_block_shape,
-            shapes_inv=self.basis_table.edge_block_shape_inv,
             filters=self.edge_filters,
             transpose_neg=self.symmetric and self.basis_grouping == "basis_shape",
             **kwargs,
@@ -963,7 +961,6 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
         self,
         types: np.ndarray,
         shapes: np.ndarray,
-        shapes_inv: np.ndarray,
         original_types: ArrayType,
         filters: ArrayType,
         transpose_neg: bool = False,
@@ -1007,19 +1004,31 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
 
             return np.where(mask)[0]
         else:
+            unique_types = np.unique(types)
+            unique_positive_types = unique_types[unique_types >= 0]
             # BORRAR
             print("In Graph2Mat _get_labels_resort_index: ")
             print('BEFORE CALLING get_labels_resorting_array')
             print("types: ", types)
             print("shapes: ", shapes)
-            print("shapes_inv: ", shapes_inv)
             print("transpose_neg: ", transpose_neg)
             print("kwargs: ", kwargs)
+            print("unique_types: ", unique_types)
+            print("unique_positive_types: ", unique_positive_types)
+            # BORRAR
+            # indices = get_labels_resorting_array(
+            #     types,
+            #     # unique_types=unique_types,
+            #     # unique_positive_types=unique_positive_types,
+            #     shapes=shapes.astype(types.dtype),
+            #     transpose_neg=transpose_neg,
+            #     **kwargs,
+            # )
+
 
             indices = get_labels_resorting_array(
                 types,
                 shapes=shapes.astype(types.dtype),
-                shapes_inv=shapes_inv.astype(types.dtype),
                 transpose_neg=transpose_neg,
                 **kwargs,
             )
