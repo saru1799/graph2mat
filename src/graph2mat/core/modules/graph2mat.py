@@ -407,11 +407,11 @@ This is inconsistent. If symmetric, all basis must have matrix_role=None. If not
         # any mask
         if self.basis_filters is not None:
             original_edgetypes = self.basis_table.edge_type_to_point_types
-            self.node_filters_row = np.einsum(
+            self.node_filters = np.einsum(
                 "ia, ib ->iab", self.basis_filters, self.basis_filters
             )
 
-            self.edge_filters_row = np.einsum(
+            self.edge_filters = np.einsum(
                 "ia, ib ->iab",
                 self.basis_filters[original_edgetypes[:, 0]],
                 self.basis_filters[original_edgetypes[:, 1]],
