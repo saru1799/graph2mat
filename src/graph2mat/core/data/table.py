@@ -127,6 +127,11 @@ class BasisTableWithEdges:
         self.row_basis = row_basis
         self.col_basis = col_basis
 
+        # BORRAR
+        if self.is_square:
+            print("WARNING: this is done just so that some things work. DELETE IN FUTURE.")
+            self.basis = self.row_basis
+
         # Get types
         self.types = [point_basis.type for point_basis in self.row_basis]
         assert len(set(self.types)) == len(
@@ -232,10 +237,10 @@ class BasisTableWithEdges:
         self.edge_block_shape = np.concatenate([edge_block_shape, edge_block_shape_inv_inverted], axis=1)
 
         # BORRAR
-        print("In BasisTableWithEdges __init__:")
-        print("edge_block_shape: ", edge_block_shape)
-        print("edge_block_shape_inv: ", edge_block_shape_inv)
-        print("concatenated edge_block_shape: ", self.edge_block_shape)
+        # print("In BasisTableWithEdges __init__:")
+        # print("edge_block_shape: ", edge_block_shape)
+        # print("edge_block_shape_inv: ", edge_block_shape_inv)
+        # print("concatenated edge_block_shape: ", self.edge_block_shape)
 
         self.edge_block_size = self.edge_block_shape.prod(axis=0)  # shape: (n_combos,)
 
