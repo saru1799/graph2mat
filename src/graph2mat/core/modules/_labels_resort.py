@@ -62,12 +62,15 @@ def get_labels_resorting_array(
     one direction is predicted.
     """
     n_entries = types.shape[0]
+    n_types: cython.int
+    ntypes_int: cython.int
+
     if any(type < 0 for type in types):  # case of edges
-        n_types: cython.int = shapes.shape[1]  # number of types, including negative ones
-        ntypes_int: cython.int = n_types // 2 + 1  # number of types >=0
+        n_types = shapes.shape[1]  # number of types, including negative ones
+        ntypes_int = n_types // 2 + 1  # number of types >=0
     else:  # case of nodes
-        ntypes_int: cython.int = shapes.shape[1]  # number of types, excluding negative ones
-        n_types: cython.int = ntypes_int*2 - 1  # number of types, including negative ones
+        ntypes_int = shapes.shape[1]  # number of types, excluding negative ones
+        n_types = ntypes_int * 2 - 1  # number of types, including negative ones
 
 
     # BORRAR
@@ -106,8 +109,10 @@ def get_labels_resorting_array(
         sizes[-type + ntypes_int - 1] = shapes[0, n_types - type] * shapes[1, n_types - type]
 
     # Count the number of entries of each type
+    type: cython.int
+
     for i_edge in range(n_entries):
-        type: cython.int = types[i_edge]
+        type = types[i_edge]
         type_nlabels[type + ntypes_int - 1] += sizes[type + ntypes_int - 1]
         # BORRAR
         print(f"Counting labels for type {type}: sizes[{type + ntypes_int - 1}] = {sizes[type + ntypes_int - 1]}")
@@ -146,13 +151,15 @@ def get_labels_resorting_array(
 
     type_i: cython.long[:] = np.zeros_like(sizes, dtype=int)
     i: cython.int = 0
-
+    abs_type: cython.int
+    block_size: cython.int
+    start: cython.int
     for i_edge in range(n_entries):
         type = types[i_edge]
-        abs_type: cython.int = abs(type)
+        abs_type = abs(type)
 
-        block_size: cython.int = sizes[type + ntypes_int - 1]
-        start: cython.int = offset[type + ntypes_int - 1] + type_i[type + ntypes_int - 1]
+        block_size = sizes[type + ntypes_int - 1]
+        start = offset[type + ntypes_int - 1] + type_i[type + ntypes_int - 1]
 
         if transpose_neg and type < 0:
             # Get the transposed shape
